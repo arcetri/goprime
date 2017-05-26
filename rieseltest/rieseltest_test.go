@@ -2,8 +2,11 @@ package rieseltest
 
 import (
 	"testing"
-	"fmt"
 	"reflect"
+	"os"
+	"bufio"
+	"strings"
+	"strconv"
 )
 
 func TestLround(t *testing.T) {
@@ -26,6 +29,152 @@ func TestLround(t *testing.T) {
 	}
 }
 
+func TestGenV1Rodseth(t *testing.T) {
+	var testCases = []struct {
+		h, n, expected int64
+	}{
+		// only primes
+		{1095, 2992587, 5},
+		{3338480145, 257127, 21},
+		{111546435, 257139, 27},
+		{2084259, 1257787, 15},
+		{8331405, 1984565, 9},
+		{165, 2207550, 17},
+		{1155, 1082878, 11},
+	}
+
+	for _, c := range testCases {
+		actual, _ := GenV1rodseth(c.h, c.n)
+		if actual != c.expected {
+			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+		}
+	}
+}
+
+func benchmarkGenV1rodseth(h int64, n int64, b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenV1rodseth(h, n)
+	}
+}
+
+func BenchmarkV1Rodseth1(b *testing.B) { benchmarkGenV1rodseth(1095, 2992587, b) }
+func BenchmarkV1Rodseth2(b *testing.B) { benchmarkGenV1rodseth(3338480145, 257127, b) }
+func BenchmarkV1Rodseth3(b *testing.B) { benchmarkGenV1rodseth(111546435, 257139, b) }
+func BenchmarkV1Rodseth4(b *testing.B) { benchmarkGenV1rodseth(2084259, 1257787, b) }
+func BenchmarkV1Rodseth5(b *testing.B) { benchmarkGenV1rodseth(8331405, 1984565, b) }
+func BenchmarkV1Rodseth6(b *testing.B) { benchmarkGenV1rodseth(165, 2207550, b) }
+func BenchmarkV1Rodseth7(b *testing.B) { benchmarkGenV1rodseth(1155, 1082878, b) }
+
+func TestGenV1Riesel(t *testing.T) {
+	var testCases = []struct {
+		h, n, expected int64
+	}{
+		// only primes
+		{1095, 2992587, 5},
+		{3338480145, 257127, 21},
+		{111546435, 257139, 27},
+		{2084259, 1257787, 15},
+		{8331405, 1984565, 9},
+		{165, 2207550, 17},
+		{1155, 1082878, 11},
+	}
+
+	for _, c := range testCases {
+		actual, _ := GenV1riesel(c.h, c.n)
+		if actual != c.expected {
+			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+		}
+	}
+}
+
+func benchmarkGenV1riesel(h int64, n int64, b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenV1riesel(h, n)
+	}
+}
+
+func BenchmarkV1Riesel1(b *testing.B) { benchmarkGenV1riesel(1095, 2992587, b) }
+func BenchmarkV1Riesel2(b *testing.B) { benchmarkGenV1riesel(3338480145, 257127, b) }
+func BenchmarkV1Riesel3(b *testing.B) { benchmarkGenV1riesel(111546435, 257139, b) }
+func BenchmarkV1Riesel4(b *testing.B) { benchmarkGenV1riesel(2084259, 1257787, b) }
+func BenchmarkV1Riesel5(b *testing.B) { benchmarkGenV1riesel(8331405, 1984565, b) }
+func BenchmarkV1Riesel6(b *testing.B) { benchmarkGenV1riesel(165, 2207550, b) }
+func BenchmarkV1Riesel7(b *testing.B) { benchmarkGenV1riesel(1155, 1082878, b) }
+
+func BenchmarkGenV1rieselFull(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("h-n.verified.txt"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				GenV1riesel(int64(h), int64(n))
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenV1rodsethFull(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("h-n.verified.txt"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				GenV1rodseth(int64(h), int64(n))
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
 func TestSomething(t *testing.T) {
 	/*var testCases = []struct {
 		s, expected string
@@ -40,12 +189,6 @@ func TestSomething(t *testing.T) {
 			t.Errorf("Something(%q) == %q, but we expected %q", c.s, actual, c.expected)
 		}
 	}*/
-}
-
-func BenchmarkSomething(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fmt.Sprintf("hello")
-	}
 }
 
 func TestSquare(t *testing.T) {
