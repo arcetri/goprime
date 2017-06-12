@@ -2,26 +2,29 @@ package main
 
 import (
 	"primality/rieseltest"
+	"fmt"
 )
 
 func main() {
 
-	rieseltest.GenV1riesel(2084259, 1257787)
-	//rieseltest.GenV1rodseth(2084259, 1257787)
-	rieseltest.GenV1riesel(1095, 2992587)
-	//rieseltest.GenV1rodseth(1095, 2992587)
-	rieseltest.GenV1riesel(3338480145, 257127)
-	//rieseltest.GenV1rodseth(3338480145, 257127)
-	rieseltest.GenV1riesel(111546435, 257139)
-	//rieseltest.GenV1rodseth(111546435, 257139)
-	rieseltest.GenV1riesel(2084259, 1257787)
-	//rieseltest.GenV1rodseth(2084259, 1257787)
-	rieseltest.GenV1riesel(8331405, 1984565)
-	//rieseltest.GenV1rodseth(8331405, 1984565)
-	rieseltest.GenV1riesel(165, 2207550)
-	//rieseltest.GenV1rodseth(165, 2207550)
-	rieseltest.GenV1riesel(1155, 1082878)
-	//rieseltest.GenV1rodseth(1155, 1082878)
+	v1, _ := rieseltest.GenV1(105, 8, rieseltest.RODSETH)
+	fmt.Println(rieseltest.GenU2(105, 8, v1))
+
+	/*rieseltest.genV1Rodseth(2084259, 1257787)
+	rieseltest.genV1Riesel(1095, 2992587)
+	//rieseltest.genV1Rodseth(1095, 2992587)
+	rieseltest.genV1Riesel(3338480145, 257127)
+	//rieseltest.genV1Rodseth(3338480145, 257127)
+	rieseltest.genV1Riesel(111546435, 257139)
+	//rieseltest.genV1Rodseth(111546435, 257139)
+	rieseltest.genV1Riesel(2084259, 1257787)
+	//rieseltest.genV1Rodseth(2084259, 1257787)
+	rieseltest.genV1Riesel(8331405, 1984565)
+	//rieseltest.genV1Rodseth(8331405, 1984565)
+	rieseltest.genV1Riesel(165, 2207550)
+	//rieseltest.genV1Rodseth(165, 2207550)
+	rieseltest.genV1Riesel(1155, 1082878)
+	//rieseltest.genV1Rodseth(1155, 1082878) */
 
 	// [ Step 0: use sieve to attempt to eliminate any number
 	// that is divisible by a prime less than 2^39 ]

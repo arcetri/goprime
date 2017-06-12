@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
+	"math/big"
+	"math"
 )
 
 func TestLround(t *testing.T) {
@@ -44,26 +46,12 @@ func TestGenV1Rodseth(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		actual, _ := GenV1rodseth(c.h, c.n)
+		actual, _ := genV1Rodseth(c.h, c.n)
 		if actual != c.expected {
 			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
 		}
 	}
 }
-
-func benchmarkGenV1rodseth(h int64, n int64, b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		GenV1rodseth(h, n)
-	}
-}
-
-func BenchmarkV1Rodseth1(b *testing.B) { benchmarkGenV1rodseth(1095, 2992587, b) }
-func BenchmarkV1Rodseth2(b *testing.B) { benchmarkGenV1rodseth(3338480145, 257127, b) }
-func BenchmarkV1Rodseth3(b *testing.B) { benchmarkGenV1rodseth(111546435, 257139, b) }
-func BenchmarkV1Rodseth4(b *testing.B) { benchmarkGenV1rodseth(2084259, 1257787, b) }
-func BenchmarkV1Rodseth5(b *testing.B) { benchmarkGenV1rodseth(8331405, 1984565, b) }
-func BenchmarkV1Rodseth6(b *testing.B) { benchmarkGenV1rodseth(165, 2207550, b) }
-func BenchmarkV1Rodseth7(b *testing.B) { benchmarkGenV1rodseth(1155, 1082878, b) }
 
 func TestGenV1Riesel(t *testing.T) {
 	var testCases = []struct {
@@ -80,115 +68,274 @@ func TestGenV1Riesel(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		actual, _ := GenV1riesel(c.h, c.n)
+		actual, _ := genV1Riesel(c.h, c.n)
 		if actual != c.expected {
 			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
 		}
 	}
 }
 
-func benchmarkGenV1riesel(h int64, n int64, b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		GenV1riesel(h, n)
-	}
-}
+func TestGenU2Single(t *testing.T) {
+	k, _ := new(big.Int).SetString("117957132617924268157983808208874187526742763381308917679970586238568971936304401961762649639959578583102961735480739762286635937053668545012749610400773866792795067809248140808784032676788707308924861149775649032641075553276613952032825786169935399015100878575000138517502280577878565639243686849682189238494589234479725731358624237239043334418723307864340915822165953992080361881095653671050730501962846657264582380144068164980742017266009412657300013988751546677434643600169838916575278549340827531370570646904337526123314470090772404343585123729255003531576149287549750613692081411866875443165835695629173342472423326462", 10)
 
-func BenchmarkV1Riesel1(b *testing.B) { benchmarkGenV1riesel(1095, 2992587, b) }
-func BenchmarkV1Riesel2(b *testing.B) { benchmarkGenV1riesel(3338480145, 257127, b) }
-func BenchmarkV1Riesel3(b *testing.B) { benchmarkGenV1riesel(111546435, 257139, b) }
-func BenchmarkV1Riesel4(b *testing.B) { benchmarkGenV1riesel(2084259, 1257787, b) }
-func BenchmarkV1Riesel5(b *testing.B) { benchmarkGenV1riesel(8331405, 1984565, b) }
-func BenchmarkV1Riesel6(b *testing.B) { benchmarkGenV1riesel(165, 2207550, b) }
-func BenchmarkV1Riesel7(b *testing.B) { benchmarkGenV1riesel(1155, 1082878, b) }
-
-func BenchmarkGenV1rieselFull(b *testing.B) {
-
-	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("h-n.verified.txt"); err == nil {
-
-			// create a new scanner and read the file line by line
-			s := bufio.NewScanner(file)
-
-			for s.Scan() {
-				line := s.Text()
-				words := strings.Split(line, " ")
-				h, err := strconv.Atoi(words[0])
-				if err != nil {
-					panic(err)
-				}
-
-				n, err := strconv.Atoi(words[1])
-				if err != nil {
-					panic(err)
-				}
-
-				GenV1riesel(int64(h), int64(n))
-			}
-
-			// check for errors
-			if err = s.Err(); err != nil {
-				panic(err)
-			}
-
-			file.Close()
-
-		} else {
-			panic(err)
-		}
-	}
-}
-
-func BenchmarkGenV1rodsethFull(b *testing.B) {
-
-	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("h-n.verified.txt"); err == nil {
-
-			// create a new scanner and read the file line by line
-			s := bufio.NewScanner(file)
-
-			for s.Scan() {
-				line := s.Text()
-				words := strings.Split(line, " ")
-				h, err := strconv.Atoi(words[0])
-				if err != nil {
-					panic(err)
-				}
-
-				n, err := strconv.Atoi(words[1])
-				if err != nil {
-					panic(err)
-				}
-
-				GenV1rodseth(int64(h), int64(n))
-			}
-
-			// check for errors
-			if err = s.Err(); err != nil {
-				panic(err)
-			}
-
-			file.Close()
-
-		} else {
-			panic(err)
-		}
-	}
-}
-
-func TestSomething(t *testing.T) {
-	/*var testCases = []struct {
-		s, expected string
+	var testCases = []struct {
+		h, n int64
+		expected *big.Int
 	}{
-		{"yo", "yes"},
-		{"ya", "no"},
+		// only primes
+		{15, 5, big.NewInt(91)},
+		{9, 7, big.NewInt(473)},
+		{375, 9, big.NewInt(157186)},
+		{105, 8, big.NewInt(3749)},
+		{57, 8, big.NewInt(4037)},
+		{8565, 15, big.NewInt(244410061)},
+		{315, 10, big.NewInt(4015)},
+		{507, 217588, k},
 	}
 
 	for _, c := range testCases {
-		actual := Something(c.s)
-		if actual != c.expected {
-			t.Errorf("Something(%q) == %q, but we expected %q", c.s, actual, c.expected)
+		v1, _ := GenV1(c.h, c.n, RODSETH)
+		actual := GenU2(c.h, c.n, v1)
+		if actual.Cmp(c.expected) != 0 {
+			t.Errorf("GenU2(%v, %v, %v) == %v, but we expected %v", c.h, c.n, v1, actual, c.expected)
 		}
-	}*/
+	}
+}
+
+func BenchmarkGenV1Riesel(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+
+		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				genV1Riesel(int64(h), int64(n))
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenV1Rodseth(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				genV1Rodseth(int64(h), int64(n))
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenV1Penne(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+
+		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				genV1Penne(int64(h), int64(n))
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenU2Riesel(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				v1, err := GenV1(int64(h), int64(n), RIESEL)
+				if err != nil {
+					panic(err)
+				}
+
+				GenU2(int64(h), int64(n), v1)
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenU2Rodseth(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				v1, err := GenV1(int64(h), int64(n), RODSETH)
+				if err != nil {
+					panic(err)
+				}
+
+				GenU2(int64(h), int64(n), v1)
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenU2Penne(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				v1, err := GenV1(int64(h), int64(n), PENNE)
+				if err != nil {
+					panic(err)
+				}
+
+				GenU2(int64(h), int64(n), v1)
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
 }
 
 func TestSquare(t *testing.T) {
@@ -218,5 +365,12 @@ func TestSquare(t *testing.T) {
 		if !reflect.DeepEqual(actual, c.expected) {
 			t.Errorf("[%v] Something(%v) == %v, but we expected %v", i, c.input, actual, c.expected)
 		}
+	}
+}
+
+func BenchmarkComputation(b *testing.B) {
+
+	for i := 0; i < b.N; i++ {
+		big.NewInt(math.MaxInt64)
 	}
 }

@@ -12,9 +12,13 @@ import (
 	"math/big"
 )
 
-type BigNum struct {
-	base int
-	digits string
+func IsPrime(h, n int64) bool {
+	if lbit, err := lowerNonZeroBit(h); err == nil && lbit > 0 {
+		n += int64(lbit)
+		h >>= lbit
+	}
+
+	return false
 }
 
 func lround(a float64) int {
@@ -49,7 +53,7 @@ func init() {
 
 	// Only notice messages and more severe messages should be sent to the file backend
 	terminalBackendLeveled := logging.AddModuleLevel(terminalBackend)
-	terminalBackendLeveled.SetLevel(logging.NOTICE, "")
+	terminalBackendLeveled.SetLevel(logging.DEBUG, "")
 	terminalBackendFormatter := logging.NewBackendFormatter(terminalBackendLeveled, terminalFormat)
 
 	// Set the two backends for the loggers
@@ -143,30 +147,40 @@ func propagateCarry(number *[]int, base int) {
 	}
 }
 
-func genV1(h, n int64) (int64, error) {
+const (
+	RIESEL uint8 = iota
+	RODSETH
+	PENNE
+)
+
+func GenV1(h, n int64, method uint8) (int64, error) {
+
+	// TODO MAKE H ODD
 
 	// Check if h is not a multiple of 3
 	if hmod3 := h % 3; hmod3 != 0 {
 
 		// When k == 1 mod 3 AND n is even or k == 2 mod 3 and n is odd, then 3 is a factor
-		if ((hmod3 == 1) && (n&1 == 0)) || ((hmod3 == 2) && (n&1 == 1)) {
-			return -1, errors.New("N = h*2^n-1 is a multiple of 3")
+		if !(h == 1 && n == 2) && (((hmod3 == 1) && (n&1 == 0)) || ((hmod3 == 2) && (n&1 == 1))) {
+			return -1, errors.New(fmt.Sprintf("N = %v*2^%v-1 is a multiple of 3", h, n))
 		}
 
 		// In the other cases, we have that v(1) = 4
 		return 4, nil
 	}
 
-	return GenV1rodseth(h, n)
+	if method == RIESEL {
+		return genV1Riesel(h, n)
+	} else if method == RODSETH {
+		return genV1Rodseth(h, n)
+	} else if method == PENNE {
+		return genV1Penne(h, n)
+	} else {
+		return -1, errors.New("The specified method to generate v1 is not valid")
+	}
 }
 
-
-var NEqualsMod8 = false
-var checkDone = false
-
-func efficient_jacobi(x, h, n int64) int {
-	// TODO caching
-
+func efficient_jacobi(x, h, n int64, NEqualsMod8, checkDone bool) int {
 	equalsModQ := func(x int64, modValues ...int64) bool {
 		for _, m := range modValues {
 			if x == m { return true }
@@ -184,7 +198,7 @@ func efficient_jacobi(x, h, n int64) int {
 		// When h == 0 (mod 8), then N == dred - 1 (mod dred),
 		// which means that Jacobi(dred,N) = 1, not valid
 		if checkDone == false  && hMod8 != 0 {
-			twoNMod8 := new(big.Int).Exp(big.NewInt(2), big.NewInt(n), big.NewInt(8)).Int64()
+			twoNMod8 := ModExp(2, n, 8)
 			NMod8 := (hMod8*twoNMod8 - 1 + 8) % 8
 			NEqualsMod8 = equalsModQ(NMod8 , 3, 5)
 			checkDone = true
@@ -204,7 +218,7 @@ func efficient_jacobi(x, h, n int64) int {
 		jNx = 1
 
 	} else {
-		twoNModX := new(big.Int).Exp(big.NewInt(2), big.NewInt(n), big.NewInt(x)).Int64()
+		twoNModX := ModExp(2, n, x)
 		NModX := (hModX*twoNModX - 1 + x) % x
 
 		jNx = big.Jacobi(big.NewInt(NModX), big.NewInt(x))
@@ -218,34 +232,24 @@ func efficient_jacobi(x, h, n int64) int {
 	}
 }
 
-type stack []int
+func genV1Rodseth(h, n int64) (int64, error) {
+	NEqualsMod8 := false
+	checkDone := false
 
-func (s stack) Push(v int) stack {
-	return append(s, v)
-}
-
-func (s stack) PopFromTop() (stack, int) {
-	// FIXME: What do we do if the stack is empty, though?
-	return  s[1:], s[0]
-}
-
-func GenV1rodseth(h, n int64) (int64, error) {
-	var s stack
+	queue := make(chan int, 4)
 
 	// Only need 4 values
 	jacobi_minus := func (x, h, n int64) int {
-		if len(s) < 4 {
-			return efficient_jacobi(x, h, n)
+		if len(queue) < 4 {
+			return efficient_jacobi(x, h, n, NEqualsMod8, checkDone)
 		} else {
-			var ret int
-			s, ret = s.PopFromTop()
-			return ret
+			return <-queue
 		}
 	}
 
 	jacobi_plus := func (x, h, n int64) int {
-		j := efficient_jacobi(x, h, n)
-		s = s.Push(j)
+		j := efficient_jacobi(x, h, n, NEqualsMod8, checkDone)
+		queue <- j
 		return j
 	}
 
@@ -261,9 +265,9 @@ func GenV1rodseth(h, n int64) (int64, error) {
 	return -1, errors.New("It was not possible to find a valid v1 for the given n and h")
 }
 
-func GenV1riesel(h, n int64) (int64, error) {
+func genV1Riesel(h, n int64) (int64, error) {
 
-	// Check if there is a p which satisfies Rodseth conditions
+	// Check if there is a v which satisfies Riesel conditions
 	var v int64
 	cache := make(map[int64]int)
 
@@ -306,7 +310,7 @@ func GenV1riesel(h, n int64) (int64, error) {
 			jNd = val
 
 		} else {
-			twonModd := new(big.Int).Exp(big.NewInt(2), big.NewInt(n), big.NewInt(dred)).Int64()
+			twonModd := ModExp(2, n, dred)
 			Nmodd := (hmodd * twonModd - 1 + dred) % dred
 
 			if (Nmodd == 0) && (dred != 1) {
@@ -350,7 +354,7 @@ func GenV1riesel(h, n int64) (int64, error) {
 				jNa = val
 
 			} else {
-				twonModa := new(big.Int).Exp(big.NewInt(2), big.NewInt(n), big.NewInt(ared)).Int64()
+				twonModa := ModExp(2, n, ared)
 				Nmoda := (hmoda * twonModa - 1 + ared) % ared
 
 				if (Nmoda == 0) && (ared != 1) {
@@ -369,6 +373,74 @@ func GenV1riesel(h, n int64) (int64, error) {
 
 			return v, nil
 		}
+	}
+
+	// If there is no valid v1, return an error
+	return -1, errors.New("It was not possible to find a valid v1 for the given n and h")
+}
+
+func genV1Penne(h, n int64) (int64, error) {
+	// Check if there is a v which satisfies Riesel conditions
+	var x int64
+	cache := make(map[int64]int)
+
+	for x = 1; ; x++ {
+		_, d, err := reduce(x * x + 4)
+
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		var dred int64
+		if (d & 1) == 1 {
+			dred = d
+		} else {
+			dred = d >> 1
+		}
+
+		var sign bool
+		if (n > 2) || (d & 1 == 1) {
+			sign = true
+		} else {
+			sign = false
+		}
+
+		hmodd := h % dred
+
+		// When h == 0 (mod dred), then N == dred - 1 (mod dred),
+		// which means that Jacobi(dred,N) = 1, not valid
+		if hmodd == 0 {
+			continue
+		}
+
+		if (n > 1) && ((((dred - 1) / 2) & 1) == 1) {
+			sign = !sign
+		}
+
+		var jNd int
+		if val, ok := cache[dred]; ok {
+			jNd = val
+
+		} else {
+			twonModd := ModExp(2, n, dred)
+			Nmodd := (hmodd * twonModd - 1 + dred) % dred
+
+			if (Nmodd == 0) && (dred != 1) {
+				return -1, errors.New("N has a known factor, it does not need to be tested further.")
+			}
+
+			jNd = big.Jacobi(big.NewInt(Nmodd), big.NewInt(dred))
+			// TODO add the check that a and b are coprime
+
+			cache[dred] = jNd
+		}
+
+		if ((sign == true) && (jNd == 1)) || ((sign == false) && (jNd == -1)) {
+			continue
+		}
+
+		return x * x + 2, nil
 	}
 
 	// If there is no valid v1, return an error
@@ -407,7 +479,7 @@ func reduce(x int64) (b int64, d int64, e error) {
 	return b, d, nil
 }
 
-func issquare (n int64) (s int64) {
+func issquare(n int64) (s int64) {
 	// This function returns the square root of an integer square, or zero.
 	s = int64(lround(math.Floor(math.Sqrt(float64(n)))))
 
@@ -416,6 +488,145 @@ func issquare (n int64) (s int64) {
 	} else {
 		return 0
 	}
+}
+
+func ModExp(base, exponent, modulus int64) int64 {
+	if modulus == 1 { return 0 }
+	result := int64(1)
+	base = base % modulus
+
+	for ; exponent > 0; exponent >>= 1 {
+
+		if exponent&1 == 1 {
+			result = (result * base) % modulus
+		}
+
+		base = (base * base) % modulus
+	}
+
+	return result
+}
+
+func bitLen(n int64) int {
+	bitLen := 0
+	for ; n != 0; n = n >> 1 {
+		bitLen++
+	}
+
+	return bitLen
+}
+
+func lowerNonZeroBit(n int64) (uint, error) {
+	ret := uint(0)
+
+	if n == 0 {
+		return 0, errors.New("Given a zero input, which does not have any set bit")
+	}
+
+	for n&1 == 0 && n > 0 {
+		ret += 1
+		n >>= 1
+	}
+
+	return ret, nil
+}
+
+func bit(n int64, index uint) bool {
+	return ((n >> index) & 1) == 1
+}
+
+func rieselMod(N, v *big.Int, h, n int64, c chan *big.Int) {
+	// Returns r % (h * 2^n - 1)
+
+	// Check h, n positive integers
+	// Make h odd if not:
+
+	// TODO benchmark and why?
+	if N.Cmp(big.NewInt(math.MaxInt64)) == -1 {
+		ret := new(big.Int).Mod(v, N)
+		c <- ret
+		return
+	}
+
+	ret := v
+	for ret.Cmp(N) == 1 {
+
+		if int64(ret.BitLen()) - 1 < n {
+			break
+		}
+
+		j := new(big.Int).Rsh(ret, uint(n))
+		k := new(big.Int).Sub(ret, new(big.Int).Lsh(j, uint(n)))
+
+		if h == 1 {
+			ret.Add(k, j)
+		} else {
+			tquo := new(big.Int)
+			tmod := new(big.Int)
+			tquo.DivMod(j, big.NewInt(h), tmod)
+
+			ret.Add(new(big.Int).Add(new(big.Int).Lsh(tmod, uint(n)), k), tquo)
+		}
+	}
+
+	if ret.Sign() == -1 {
+		ret.Add(ret, N)
+		c <- ret
+	} else if ret.Cmp(N) == 0 {
+		c <- big.NewInt(0)
+	} else {
+		c <- ret
+	}
+}
+
+func GenU2(h, n, v1 int64) *big.Int {
+	// Check sanity of arguments / preconditions, like that h is positive odd, v positive, n gt or eq to 2
+
+	v1_big := big.NewInt(v1)
+	r := v1_big // TODO check not sure it is copied
+
+	N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(h), new(big.Int).Exp(big.NewInt(2),
+		big.NewInt(n), nil)), big.NewInt(1))
+
+	if h == 1 {
+		c := make(chan *big.Int)
+		go rieselMod(N, r, h, n, c)
+		return <- c
+	}
+
+	// s := v1^2 - 2
+	s := new(big.Int).Mul(r, r)
+	s = s.Sub(s, big.NewInt(2))
+
+	c_r := make(chan *big.Int)
+	c_s := make(chan *big.Int)
+
+	// BitLen counts also the last one 0 so it's like an array from 0 to 4 means 5, and we want to start from 3
+	for i := bitLen(h) - 2; i > 0; i-- {
+
+		if bit(h,uint(i)) {
+			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_r)
+			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(s, s), big.NewInt(2)), h, n, c_s)
+
+			r = <- c_r
+			s = <- c_s
+
+		} else {
+			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_s)
+			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, r), big.NewInt(2)), h, n, c_r)
+
+			s = <- c_s
+			r = <- c_r
+		}
+	}
+
+	go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_r)
+	r = <- c_r
+
+	// v(i + 1) = v(1) * v(i) - v(i - 1)
+	// v(2i) = v(i)^2 - 2
+	// v(2i + 1) = v(i) * v(i + 1) - v(1)
+	return r
 }
 
 /*func computeV(n, h int) int {
