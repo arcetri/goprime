@@ -95,9 +95,46 @@ func TestGenU2Single(t *testing.T) {
 
 	for _, c := range testCases {
 		v1, _ := GenV1(c.h, c.n, RODSETH)
-		actual := GenU2(c.h, c.n, v1)
+		N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(c.h), new(big.Int).
+			Exp(big.NewInt(2), big.NewInt(c.n), nil)), big.NewInt(1))
+
+		actual := GenU2(N, c.h, c.n, v1)
 		if actual.Cmp(c.expected) != 0 {
 			t.Errorf("GenU2(%v, %v, %v) == %v, but we expected %v", c.h, c.n, v1, actual, c.expected)
+		}
+	}
+}
+
+func TestGenUNSingle(t *testing.T) {
+	t.Skip()
+
+	zero := big.NewInt(0)
+
+	var testCases = []struct {
+		h, n int64
+		expected *big.Int
+	}{
+		// only primes
+		{15, 5, zero},
+		{9, 7, zero},
+		{375, 9, zero},
+		{105, 8, zero},
+		{57, 8, zero},
+		{8565, 15, zero},
+		{315, 10, zero},
+		{507, 217588, zero},
+	}
+
+	for _, c := range testCases {
+		v1, _ := GenV1(c.h, c.n, RODSETH)
+		N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(c.h), new(big.Int).
+			Exp(big.NewInt(2), big.NewInt(c.n), nil)), big.NewInt(1))
+
+		u2 := GenU2(N, c.h, c.n, v1)
+		actual := GenUN(N, c.h, c.n, u2)
+
+		if actual.Cmp(c.expected) != 0 {
+			t.Errorf("GenUN(%v, %v, %v) == %v, but we expected %v", c.h, c.n, u2, actual, c.expected)
 		}
 	}
 }
@@ -240,7 +277,10 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 					panic(err)
 				}
 
-				GenU2(int64(h), int64(n), v1)
+				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(int64(h)), new(big.Int).
+					Exp(big.NewInt(2), big.NewInt(int64(n)), nil)), big.NewInt(1))
+
+				GenU2(N, int64(h), int64(n), v1)
 			}
 
 			// check for errors
@@ -281,7 +321,10 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 					panic(err)
 				}
 
-				GenU2(int64(h), int64(n), v1)
+				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(int64(h)), new(big.Int).
+					Exp(big.NewInt(2), big.NewInt(int64(n)), nil)), big.NewInt(1))
+
+				GenU2(N, int64(h), int64(n), v1)
 			}
 
 			// check for errors
@@ -307,22 +350,27 @@ func BenchmarkGenU2Penne(b *testing.B) {
 			for s.Scan() {
 				line := s.Text()
 				words := strings.Split(line, " ")
-				h, err := strconv.Atoi(words[0])
+				h_raw, err := strconv.Atoi(words[0])
 				if err != nil {
 					panic(err)
 				}
 
-				n, err := strconv.Atoi(words[1])
+				n_raw, err := strconv.Atoi(words[1])
 				if err != nil {
 					panic(err)
 				}
 
-				v1, err := GenV1(int64(h), int64(n), PENNE)
+				h, n := int64(h_raw), int64(n_raw)
+
+				v1, err := GenV1(h, n, PENNE)
 				if err != nil {
 					panic(err)
 				}
 
-				GenU2(int64(h), int64(n), v1)
+				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(h), new(big.Int).
+					Exp(big.NewInt(2), big.NewInt(n), nil)), big.NewInt(1))
+
+				GenU2(N, h, n, v1)
 			}
 
 			// check for errors

@@ -18,6 +18,19 @@ func IsPrime(h, n int64) bool {
 		h >>= lbit
 	}
 
+	N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(h), new(big.Int).Exp(big.NewInt(2), big.NewInt(n), nil)), big.NewInt(1))
+
+	v1, _ := GenV1(h, n, RODSETH)
+
+	u2 := GenU2(N, h, n, v1)
+	uN := GenUN(N, h, n, u2)
+
+	if uN.Cmp(big.NewInt(0)) == 0 {
+		return true
+	} else {
+		log.Debug("n = %v*2^%v-1 lead to u(n)=%v", h, n, uN)
+	}
+
 	return false
 }
 
@@ -53,7 +66,7 @@ func init() {
 
 	// Only notice messages and more severe messages should be sent to the file backend
 	terminalBackendLeveled := logging.AddModuleLevel(terminalBackend)
-	terminalBackendLeveled.SetLevel(logging.DEBUG, "")
+	terminalBackendLeveled.SetLevel(logging.NOTICE, "")
 	terminalBackendFormatter := logging.NewBackendFormatter(terminalBackendLeveled, terminalFormat)
 
 	// Set the two backends for the loggers
@@ -535,7 +548,7 @@ func bit(n int64, index uint) bool {
 	return ((n >> index) & 1) == 1
 }
 
-func rieselMod(N, v *big.Int, h, n int64, c chan *big.Int) {
+func rieselMod(N, v *big.Int, h, n int64) *big.Int {
 	// Returns r % (h * 2^n - 1)
 
 	// Check h, n positive integers
@@ -544,54 +557,63 @@ func rieselMod(N, v *big.Int, h, n int64, c chan *big.Int) {
 	// TODO benchmark and why?
 	if N.Cmp(big.NewInt(math.MaxInt64)) == -1 {
 		ret := new(big.Int).Mod(v, N)
-		c <- ret
-		return
-	}
+		return ret
 
-	ret := v
-	for ret.Cmp(N) == 1 {
-
-		if int64(ret.BitLen()) - 1 < n {
-			break
-		}
-
-		j := new(big.Int).Rsh(ret, uint(n))
-		k := new(big.Int).Sub(ret, new(big.Int).Lsh(j, uint(n)))
-
-		if h == 1 {
-			ret.Add(k, j)
-		} else {
-			tquo := new(big.Int)
-			tmod := new(big.Int)
-			tquo.DivMod(j, big.NewInt(h), tmod)
-
-			ret.Add(new(big.Int).Add(new(big.Int).Lsh(tmod, uint(n)), k), tquo)
-		}
-	}
-
-	if ret.Sign() == -1 {
-		ret.Add(ret, N)
-		c <- ret
-	} else if ret.Cmp(N) == 0 {
-		c <- big.NewInt(0)
 	} else {
-		c <- ret
+		ret := v
+		for ret.Cmp(N) == 1 {
+
+			if int64(ret.BitLen()) - 1 < n {
+				break
+			}
+
+			j := new(big.Int).Rsh(ret, uint(n))
+			k := new(big.Int).Sub(ret, new(big.Int).Lsh(j, uint(n)))
+
+			if h == 1 {
+				ret.Add(k, j)
+			} else {
+				tquo := new(big.Int)
+				tmod := new(big.Int)
+				tquo.DivMod(j, big.NewInt(h), tmod)
+
+				ret.Add(new(big.Int).Add(new(big.Int).Lsh(tmod, uint(n)), k), tquo)
+			}
+		}
+
+		if ret.Sign() == -1 {
+			ret.Add(ret, N)
+			return ret
+		} else if ret.Cmp(N) == 0 {
+			return big.NewInt(0)
+		} else {
+			return ret
+		}
 	}
 }
 
-func GenU2(h, n, v1 int64) *big.Int {
+func rieselModCh(N, v *big.Int, h, n int64, c chan *big.Int) {
+	c <- rieselMod(N, v, h, n)
+}
+
+func GenU2(N *big.Int, h, n, v1 int64) *big.Int {
+
 	// Check sanity of arguments / preconditions, like that h is positive odd, v positive, n gt or eq to 2
 
 	v1_big := big.NewInt(v1)
-	r := v1_big // TODO check not sure it is copied
 
-	N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(h), new(big.Int).Exp(big.NewInt(2),
-		big.NewInt(n), nil)), big.NewInt(1))
+	efficient_2n_plus_one := func(a, b *big.Int, c chan *big.Int) {
+		rieselModCh(N, new(big.Int).Sub(new(big.Int).Mul(a, b), v1_big), h, n, c)
+	}
+
+	efficient_2n := func(a *big.Int, c chan *big.Int) {
+		rieselModCh(N, new(big.Int).Sub(new(big.Int).Mul(a, a), big.NewInt(2)), h, n, c)
+	}
+
+	r := v1_big
 
 	if h == 1 {
-		c := make(chan *big.Int)
-		go rieselMod(N, r, h, n, c)
-		return <- c
+		return rieselMod(N, r, h, n)
 	}
 
 	// s := v1^2 - 2
@@ -605,23 +627,22 @@ func GenU2(h, n, v1 int64) *big.Int {
 	for i := bitLen(h) - 2; i > 0; i-- {
 
 		if bit(h,uint(i)) {
-			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_r)
-			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(s, s), big.NewInt(2)), h, n, c_s)
+			go efficient_2n_plus_one(r, s, c_r)
+			go efficient_2n(s, c_s)
 
 			r = <- c_r
 			s = <- c_s
 
 		} else {
-			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_s)
-			go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, r), big.NewInt(2)), h, n, c_r)
+			go efficient_2n_plus_one(r, s, c_s)
+			go efficient_2n(r, c_r)
 
 			s = <- c_s
 			r = <- c_r
 		}
 	}
 
-	go rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n, c_r)
-	r = <- c_r
+	r = rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(r, s), v1_big), h, n)
 
 	// v(i + 1) = v(1) * v(i) - v(i - 1)
 	// v(2i) = v(i)^2 - 2
@@ -629,26 +650,12 @@ func GenU2(h, n, v1 int64) *big.Int {
 	return r
 }
 
-/*func computeV(n, h int) int {
+func GenUN(N *big.Int, h, n int64, u *big.Int) *big.Int {
+	// Check sanity of arguments / preconditions, like that h is positive odd, v positive, n gt or eq to 2
 
-	if h == 1 {
-		if n % 4 == 3 {
-			return 3
-		} else if n % 2 == 1 {
-			return 4
-		}
+	for i := int64(3); i <= n; i++ {
+		u = rieselMod(N, new(big.Int).Sub(new(big.Int).Mul(u, u), big.NewInt(2)), h, n)
 	}
 
-	if h == 3 {
-		if m := n % 4; m == 0 || m == 3 {
-			return 5778
-		}
-	}
-
-
+	return u
 }
-
-func computeU(prevU, h, n int) {
-
-	squaredU := square(prevU)
-}*/
