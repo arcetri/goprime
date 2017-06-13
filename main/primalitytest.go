@@ -7,7 +7,7 @@ import (
 
 func main() {
 
-	fmt.Println(rieseltest.IsPrime(105, 8))
+	fmt.Println(rieseltest.IsPrime(507, 217588))
 
 	/*rieseltest.genV1Rodseth(2084259, 1257787)
 	rieseltest.genV1Riesel(1095, 2992587)

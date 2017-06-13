@@ -7,7 +7,7 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
-	"math/big"
+	big "github.com/ncw/gmp"
 	"math"
 )
 
@@ -122,7 +122,6 @@ func TestGenUNSingle(t *testing.T) {
 		{57, 8, zero},
 		{8565, 15, zero},
 		{315, 10, zero},
-		{507, 217588, zero},
 	}
 
 	for _, c := range testCases {
