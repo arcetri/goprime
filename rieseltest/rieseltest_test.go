@@ -7,7 +7,7 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
-	big "github.com/ncw/gmp"
+	big "github.com/ricpacca/gmp"
 	"math"
 )
 
@@ -23,10 +23,10 @@ func TestLround(t *testing.T) {
 		{-1.5, -2},
 	}
 
-	for i, c := range testCases {
+	for _, c := range testCases {
 		actual := lround(c.input)
 		if actual != c.expected {
-			t.Errorf("[%v] Something(%v) == %v, but we expected %v", i, c.input, actual, c.expected)
+			t.Errorf("lround(%v) == %v, but we expected %v", c.input, actual, c.expected)
 		}
 	}
 }
@@ -48,7 +48,7 @@ func TestGenV1Rodseth(t *testing.T) {
 	for _, c := range testCases {
 		actual, _ := genV1Rodseth(c.h, c.n)
 		if actual != c.expected {
-			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+			t.Errorf("genV1Rodseth(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
 		}
 	}
 }
@@ -70,7 +70,7 @@ func TestGenV1Riesel(t *testing.T) {
 	for _, c := range testCases {
 		actual, _ := genV1Riesel(c.h, c.n)
 		if actual != c.expected {
-			t.Errorf("Something(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+			t.Errorf("genV1Riesel(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
 		}
 	}
 }
@@ -94,13 +94,12 @@ func TestGenU2Single(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		v1, _ := GenV1(c.h, c.n, RODSETH)
-		N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(c.h), new(big.Int).
-			Exp(big.NewInt(2), big.NewInt(c.n), nil)), big.NewInt(1))
+		N := NewRieselNumber(c.h, c.n)
+		v1, _ := GenV1(N, RODSETH)
+		actual := GenU2(N, v1)
 
-		actual := GenU2(N, c.h, c.n, v1)
 		if actual.Cmp(c.expected) != 0 {
-			t.Errorf("GenU2(%v, %v, %v) == %v, but we expected %v", c.h, c.n, v1, actual, c.expected)
+			t.Errorf("GenU2(%v, %v) == %v, but we expected %v", N, v1, actual, c.expected)
 		}
 	}
 }
@@ -125,15 +124,14 @@ func TestGenUNSingle(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		v1, _ := GenV1(c.h, c.n, RODSETH)
-		N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(c.h), new(big.Int).
-			Exp(big.NewInt(2), big.NewInt(c.n), nil)), big.NewInt(1))
+		N := NewRieselNumber(c.h, c.n)
+		v1, _ := GenV1(N, RODSETH)
+		u2 := GenU2(N, v1)
 
-		u2 := GenU2(N, c.h, c.n, v1)
-		actual := GenUN(N, c.h, c.n, u2)
+		actual := GenUN(N, u2)
 
 		if actual.Cmp(c.expected) != 0 {
-			t.Errorf("GenUN(%v, %v, %v) == %v, but we expected %v", c.h, c.n, u2, actual, c.expected)
+			t.Errorf("GenUN(%v, %v) == %v, but we expected %v", N, u2, actual, c.expected)
 		}
 	}
 }
@@ -271,15 +269,14 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 					panic(err)
 				}
 
-				v1, err := GenV1(int64(h), int64(n), RIESEL)
+				N := NewRieselNumber(int64(h), int64(n))
+
+				v1, err := GenV1(N, RIESEL)
 				if err != nil {
 					panic(err)
 				}
 
-				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(int64(h)), new(big.Int).
-					Exp(big.NewInt(2), big.NewInt(int64(n)), nil)), big.NewInt(1))
-
-				GenU2(N, int64(h), int64(n), v1)
+				GenU2(N, v1)
 			}
 
 			// check for errors
@@ -315,15 +312,14 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 					panic(err)
 				}
 
-				v1, err := GenV1(int64(h), int64(n), RODSETH)
+				N := NewRieselNumber(int64(h), int64(n))
+
+				v1, err := GenV1(N, RODSETH)
 				if err != nil {
 					panic(err)
 				}
 
-				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(int64(h)), new(big.Int).
-					Exp(big.NewInt(2), big.NewInt(int64(n)), nil)), big.NewInt(1))
-
-				GenU2(N, int64(h), int64(n), v1)
+				GenU2(N, v1)
 			}
 
 			// check for errors
@@ -349,27 +345,24 @@ func BenchmarkGenU2Penne(b *testing.B) {
 			for s.Scan() {
 				line := s.Text()
 				words := strings.Split(line, " ")
-				h_raw, err := strconv.Atoi(words[0])
+				h, err := strconv.Atoi(words[0])
 				if err != nil {
 					panic(err)
 				}
 
-				n_raw, err := strconv.Atoi(words[1])
+				n, err := strconv.Atoi(words[1])
 				if err != nil {
 					panic(err)
 				}
 
-				h, n := int64(h_raw), int64(n_raw)
+				N := NewRieselNumber(int64(h), int64(n))
 
-				v1, err := GenV1(h, n, PENNE)
+				v1, err := GenV1(N, PENNE)
 				if err != nil {
 					panic(err)
 				}
 
-				N := new(big.Int).Sub(new(big.Int).Mul(big.NewInt(h), new(big.Int).
-					Exp(big.NewInt(2), big.NewInt(n), nil)), big.NewInt(1))
-
-				GenU2(N, h, n, v1)
+				GenU2(N, v1)
 			}
 
 			// check for errors

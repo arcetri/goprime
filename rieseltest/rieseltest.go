@@ -9,27 +9,23 @@ import (
 	"time"
 	"math"
 	"errors"
- 	gmp "github.com/ncw/gmp"
-	"math/big"
+	big "github.com/ricpacca/gmp"
 )
 
-func IsPrime(h, n int64) bool {
-	if lbit, err := lowerNonZeroBit(h); err == nil && lbit > 0 {
-		n += int64(lbit)
-		h >>= lbit
+func IsPrime(N *RieselNumber) bool {
+	if lbit, err := lowerNonZeroBit(N.h); err == nil && lbit > 0 {
+		N.n += int64(lbit)
+		N.h >>= lbit
 	}
 
-	N := new(gmp.Int).Sub(new(gmp.Int).Mul(gmp.NewInt(h), new(gmp.Int).Exp(gmp.NewInt(2), gmp.NewInt(n), nil)), gmp.NewInt(1))
+	v1, _ := GenV1(N, RODSETH)
+	u2 := GenU2(N, v1)
+	uN := GenUN(N, u2)
 
-	v1, _ := GenV1(h, n, RODSETH)
-
-	u2 := GenU2(N, h, n, v1)
-	uN := GenUN(N, h, n, u2)
-
-	if uN.Cmp(gmp.NewInt(0)) == 0 {
+	if uN.Cmp(zero) == 0 {
 		return true
 	} else {
-		log.Debug("n = %v*2^%v-1 lead to u(n)=%v", h, n, uN)
+		log.Notice("n = %v*2^%v-1 lead to u(n)=%v", N.h, N.n, uN)
 	}
 
 	return false
@@ -167,16 +163,16 @@ const (
 	PENNE
 )
 
-func GenV1(h, n int64, method uint8) (int64, error) {
+func GenV1(N *RieselNumber, method uint8) (int64, error) {
 
 	// TODO MAKE H ODD
 
 	// Check if h is not a multiple of 3
-	if hmod3 := h % 3; hmod3 != 0 {
+	if hmod3 := N.h % 3; hmod3 != 0 {
 
 		// When k == 1 mod 3 AND n is even or k == 2 mod 3 and n is odd, then 3 is a factor
-		if !(h == 1 && n == 2) && (((hmod3 == 1) && (n&1 == 0)) || ((hmod3 == 2) && (n&1 == 1))) {
-			return -1, errors.New(fmt.Sprintf("N = %v*2^%v-1 is a multiple of 3", h, n))
+		if !(N.h == 1 && N.n == 2) && (((hmod3 == 1) && (N.n&1 == 0)) || ((hmod3 == 2) && (N.n&1 == 1))) {
+			return -1, errors.New(fmt.Sprintf("N = %v*2^%v-1 is a multiple of 3", N.h, N.n))
 		}
 
 		// In the other cases, we have that v(1) = 4
@@ -184,11 +180,11 @@ func GenV1(h, n int64, method uint8) (int64, error) {
 	}
 
 	if method == RIESEL {
-		return genV1Riesel(h, n)
+		return genV1Riesel(N.h, N.n)
 	} else if method == RODSETH {
-		return genV1Rodseth(h, n)
+		return genV1Rodseth(N.h, N.n)
 	} else if method == PENNE {
-		return genV1Penne(h, n)
+		return genV1Penne(N.h, N.n)
 	} else {
 		return -1, errors.New("The specified method to generate v1 is not valid")
 	}
@@ -235,7 +231,7 @@ func efficient_jacobi(x, h, n int64, NEqualsMod8, checkDone bool) int {
 		twoNModX := ModExp(2, n, x)
 		NModX := (hModX*twoNModX - 1 + x) % x
 
-		jNx = big.Jacobi(big.NewInt(NModX), big.NewInt(x))
+		jNx = big.Jacobi(new(big.Int).SetInt64(NModX), new(big.Int).SetInt64(x))
 		if (x % 4) == 3 { sign = !sign }
 	}
 
@@ -331,7 +327,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 				return -1, errors.New("N has a known factor, it does not need to be tested further.")
 			}
 
-			jNd = big.Jacobi(big.NewInt(Nmodd), big.NewInt(dred))
+			jNd = big.Jacobi(new(big.Int).SetInt64(Nmodd), new(big.Int).SetInt64(dred))
 			// TODO add the check that a and b are coprime
 
 			cache[dred] = jNd
@@ -375,7 +371,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 					return -1, errors.New("N has a known factor, it does not need to be tested further.")
 				}
 
-				jNa = big.Jacobi(big.NewInt(Nmoda), big.NewInt(ared))
+				jNa = big.Jacobi(new(big.Int).SetInt64(Nmoda), new(big.Int).SetInt64(ared))
 				// TODO add the check that a and b are coprime
 
 				cache[ared] = jNa
@@ -444,7 +440,7 @@ func genV1Penne(h, n int64) (int64, error) {
 				return -1, errors.New("N has a known factor, it does not need to be tested further.")
 			}
 
-			jNd = big.Jacobi(big.NewInt(Nmodd), big.NewInt(dred))
+			jNd = big.Jacobi(new(big.Int).SetInt64(Nmodd), new(big.Int).SetInt64(dred))
 			// TODO add the check that a and b are coprime
 
 			cache[dred] = jNd
@@ -549,90 +545,101 @@ func bit(n int64, index uint) bool {
 	return ((n >> index) & 1) == 1
 }
 
-func rieselMod(N, v *gmp.Int, h, n int64) *gmp.Int {
+var maxInt64 = new(big.Int).SetInt64(math.MaxInt64)
+
+func rieselMod(v *big.Int, N *RieselNumber) *big.Int {
 	// Returns r % (h * 2^n - 1)
 
 	// Check h, n positive integers
 	// Make h odd if not:
 
 	// TODO benchmark and why?
-	if N.Cmp(gmp.NewInt(math.MaxInt64)) == -1 {
-		ret := new(gmp.Int).Mod(v, N)
-		return ret
+	if N.N.Cmp(maxInt64) == -1 {
+		v.Mod(v, N.N)
+		return v
 
 	} else {
-		ret := v
-		for ret.Cmp(N) == 1 {
+		for v.Cmp(N.N) == 1 {
+			if int64(v.BitLen()) - 1 < N.n { break }
 
-			if int64(ret.BitLen()) - 1 < n {
-				break
-			}
+			j := new(big.Int)
+			j.Rsh(v, uint(N.n))
 
-			j := new(gmp.Int).Rsh(ret, uint(n))
-			k := new(gmp.Int).Sub(ret, new(gmp.Int).Lsh(j, uint(n)))
+			k := new(big.Int)
+			k.Sub(v, k.Lsh(j, uint(N.n)))
 
-			if h == 1 {
-				ret.Add(k, j)
+			if N.h == 1 {
+				v.Add(k, j)
 			} else {
-				tquo := new(gmp.Int)
-				tmod := new(gmp.Int)
-				tquo.DivMod(j, gmp.NewInt(h), tmod)
+				tquo := new(big.Int)
+				tmod := new(big.Int)
 
-				ret.Add(new(gmp.Int).Add(new(gmp.Int).Lsh(tmod, uint(n)), k), tquo)
+				tquo.DivMod(j, N.hBig, tmod)
+				v.Add(v.Add(tmod.Lsh(tmod, uint(N.n)), k), tquo)
 			}
 		}
 
-		if ret.Sign() == -1 {
-			ret.Add(ret, N)
-			return ret
-		} else if ret.Cmp(N) == 0 {
-			return gmp.NewInt(0)
+		if v.Sign() == -1 {
+			v.Add(v, N.N)
+			return v
+		} else if v.Cmp(N.N) == 0 {
+			return zero
 		} else {
-			return ret
+			return v
 		}
 	}
 }
 
-func rieselModCh(N, v *gmp.Int, h, n int64, c chan *gmp.Int) {
-	c <- rieselMod(N, v, h, n)
+func rieselModCh(v *big.Int, N *RieselNumber, c chan *big.Int) {
+	c <- rieselMod(v, N)
 }
 
-func GenU2(N *gmp.Int, h, n, v1 int64) *gmp.Int {
+func GenU2(N *RieselNumber, v1 int64) *big.Int {
 
 	// Check sanity of arguments / preconditions, like that h is positive odd, v positive, n gt or eq to 2
 
-	v1_big := gmp.NewInt(v1)
+	v1_big := new(big.Int)
+	v1_big.SetInt64(v1)
 
-	efficient_2n_plus_one := func(a, b *gmp.Int, c chan *gmp.Int) {
-		rieselModCh(N, new(gmp.Int).Sub(new(gmp.Int).Mul(a, b), v1_big), h, n, c)
+	efficient_2n_plus_one := func(a, b *big.Int, c chan *big.Int) {
+		tmp := new(big.Int)
+		tmp.Mul(a, b)
+		tmp.Sub(tmp, v1_big)
+		rieselModCh(tmp, N, c)
 	}
 
-	efficient_2n := func(a *gmp.Int, c chan *gmp.Int) {
-		rieselModCh(N, new(gmp.Int).Sub(new(gmp.Int).Mul(a, a), gmp.NewInt(2)), h, n, c)
+	efficient_2n := func(a *big.Int, c chan *big.Int) {
+		tmp := new(big.Int)
+		tmp.Mul(a, a)
+		tmp.Sub(tmp, two)
+		rieselModCh(tmp, N, c)
 	}
 
-	r := v1_big
+	r := new(big.Int).Set(v1_big)
 
-	if h == 1 {
-		return rieselMod(N, r, h, n)
+	if N.h == 1 {
+		return rieselMod(r, N)
 	}
 
 	// s := v1^2 - 2
-	s := new(gmp.Int).Mul(r, r)
-	s = s.Sub(s, gmp.NewInt(2))
+	s := new(big.Int)
+	s.Mul(r, r)
+	s.Sub(s, two)
 
-	c_r := make(chan *gmp.Int)
-	c_s := make(chan *gmp.Int)
+	c_r := make(chan *big.Int)
+	c_s := make(chan *big.Int)
 
 	// BitLen counts also the last one 0 so it's like an array from 0 to 4 means 5, and we want to start from 3
-	for i := bitLen(h) - 2; i > 0; i-- {
+	for i := bitLen(N.h) - 2; i > 0; i-- {
 
-		if bit(h,uint(i)) {
+		if bit(N.h, uint(i)) {
 			go efficient_2n_plus_one(r, s, c_r)
 			go efficient_2n(s, c_s)
 
 			r = <- c_r
 			s = <- c_s
+			log.Debugf("r = %v", r)
+			log.Debugf("s = %v", s)
 
 		} else {
 			go efficient_2n_plus_one(r, s, c_s)
@@ -640,10 +647,13 @@ func GenU2(N *gmp.Int, h, n, v1 int64) *gmp.Int {
 
 			s = <- c_s
 			r = <- c_r
+			log.Debugf("r_ = %v", r)
+			log.Debugf("s_ = %v", s)
 		}
 	}
 
-	r = rieselMod(N, new(gmp.Int).Sub(new(gmp.Int).Mul(r, s), v1_big), h, n)
+	r = rieselMod(r.Sub(r.Mul(r, s), v1_big), N)
+	log.Debugf("r = %v", r)
 
 	// v(i + 1) = v(1) * v(i) - v(i - 1)
 	// v(2i) = v(i)^2 - 2
@@ -651,11 +661,13 @@ func GenU2(N *gmp.Int, h, n, v1 int64) *gmp.Int {
 	return r
 }
 
-func GenUN(N *gmp.Int, h, n int64, u *gmp.Int) *gmp.Int {
+func GenUN(N *RieselNumber, u *big.Int) *big.Int {
 	// Check sanity of arguments / preconditions, like that h is positive odd, v positive, n gt or eq to 2
 
-	for i := int64(3); i <= n; i++ {
-		u = rieselMod(N, new(gmp.Int).Sub(new(gmp.Int).Mul(u, u), gmp.NewInt(2)), h, n)
+	for i := int64(3); i <= N.n; i++ {
+		u.Mul(u, u)
+		u.Sub(u, two)
+		u = rieselMod(u, N)
 	}
 
 	return u

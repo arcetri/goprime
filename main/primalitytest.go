@@ -1,13 +1,14 @@
 package main
 
 import (
-	"primality/rieseltest"
+	"goprime/rieseltest"
 	"fmt"
 )
 
 func main() {
 
-	fmt.Println(rieseltest.IsPrime(507, 217588))
+	N := rieseltest.NewRieselNumber(507, 217588)
+	fmt.Println(rieseltest.IsPrime(N))
 
 	/*rieseltest.genV1Rodseth(2084259, 1257787)
 	rieseltest.genV1Riesel(1095, 2992587)
