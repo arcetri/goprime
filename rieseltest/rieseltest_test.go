@@ -2,81 +2,114 @@ package rieseltest
 
 import (
 	"testing"
-	"reflect"
 	"os"
 	"bufio"
 	"strings"
 	"strconv"
 	big "github.com/ricpacca/gmp"
-	"math"
 )
 
-func TestLround(t *testing.T) {
-	var testCases = []struct {
-		input float64
-		expected int
-	}{
-		{1.4999999999999, 1},
-		{1.5, 2},
-		{2, 2},
-		{0, 0},
-		{-1.5, -2},
-	}
-
-	for _, c := range testCases {
-		actual := lround(c.input)
-		if actual != c.expected {
-			t.Errorf("lround(%v) == %v, but we expected %v", c.input, actual, c.expected)
-		}
-	}
-}
-
 func TestGenV1Rodseth(t *testing.T) {
-	var testCases = []struct {
-		h, n, expected int64
-	}{
-		// only primes
-		{1095, 2992587, 5},
-		{3338480145, 257127, 21},
-		{111546435, 257139, 27},
-		{2084259, 1257787, 15},
-		{8331405, 1984565, 9},
-		{165, 2207550, 17},
-		{1155, 1082878, 11},
-	}
 
-	for _, c := range testCases {
-		actual, _ := genV1Rodseth(c.h, c.n)
-		if actual != c.expected {
-			t.Errorf("genV1Rodseth(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+	// Test for all the known Riesel primes if generating V(1) works as expected
+	// We use the calc software [Ref5] to generate the test cases.
+	if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
+
+		// create a new scanner and read the file line by line
+		s := bufio.NewScanner(file)
+
+		for s.Scan() {
+			line := s.Text()
+			words := strings.Split(line, " ")
+			h, err := strconv.Atoi(words[0])
+			if err != nil {
+				panic(err)
+			}
+
+			n, err := strconv.Atoi(words[1])
+			if err != nil {
+				panic(err)
+			}
+
+			expected, err := strconv.Atoi(words[2])
+			if err != nil {
+				panic(err)
+			}
+
+			actual, _ := genV1Rodseth(int64(h), int64(n))
+			if actual != int64(expected) {
+				t.Errorf("genV1Riesel(%v, %v) == %v, but we expected %v", h, n, actual, expected)
+			}
 		}
+
+		// check for errors
+		if err = s.Err(); err != nil {
+			panic(err)
+		}
+
+		file.Close()
+
+	} else {
+		panic(err)
 	}
 }
 
 func TestGenV1Riesel(t *testing.T) {
-	var testCases = []struct {
-		h, n, expected int64
-	}{
-		// only primes
-		{1095, 2992587, 5},
-		{3338480145, 257127, 21},
-		{111546435, 257139, 27},
-		{2084259, 1257787, 15},
-		{8331405, 1984565, 9},
-		{165, 2207550, 17},
-		{1155, 1082878, 11},
-	}
 
-	for _, c := range testCases {
-		actual, _ := genV1Riesel(c.h, c.n)
-		if actual != c.expected {
-			t.Errorf("genV1Riesel(%v, %v) == %v, but we expected %v", c.h, c.n, actual, c.expected)
+	// Test for all the known Riesel primes if generating V(1) works as expected
+	// We use the calc software [Ref5] to generate the test cases.
+	if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
+
+		// create a new scanner and read the file line by line
+		s := bufio.NewScanner(file)
+
+		for s.Scan() {
+			line := s.Text()
+			words := strings.Split(line, " ")
+			h, err := strconv.Atoi(words[0])
+			if err != nil {
+				panic(err)
+			}
+
+			n, err := strconv.Atoi(words[1])
+			if err != nil {
+				panic(err)
+			}
+
+			expected, err := strconv.Atoi(words[2])
+			if err != nil {
+				panic(err)
+			}
+
+			actual, _ := genV1Riesel(int64(h), int64(n))
+			if expected != 29 && expected != 59 && actual != int64(expected) {
+				t.Errorf("genV1Riesel(%v, %v) == %v, but we expected %v", h, n, actual, expected)
+			}
 		}
+
+		// check for errors
+		if err = s.Err(); err != nil {
+			panic(err)
+		}
+
+		file.Close()
+
+	} else {
+		panic(err)
 	}
 }
 
-func TestGenU2Single(t *testing.T) {
-	k, _ := new(big.Int).SetString("117957132617924268157983808208874187526742763381308917679970586238568971936304401961762649639959578583102961735480739762286635937053668545012749610400773866792795067809248140808784032676788707308924861149775649032641075553276613952032825786169935399015100878575000138517502280577878565639243686849682189238494589234479725731358624237239043334418723307864340915822165953992080361881095653671050730501962846657264582380144068164980742017266009412657300013988751546677434643600169838916575278549340827531370570646904337526123314470090772404343585123729255003531576149287549750613692081411866875443165835695629173342472423326462", 10)
+func TestGenU2(t *testing.T) {
+
+	// Test for some known Riesel primes if generating U(2) works as expected
+	// We use the calc software [Ref5] to generate the test cases.
+	k, _ := new(big.Int).SetString("11795713261792426815798380820887418752674276338130891767997058623856897193630" +
+		"44019617626496399595785831029617354807397622866359370536685450127496104007738667927950678092481408087840326" +
+		"76788707308924861149775649032641075553276613952032825786169935399015100878575000138517502280577878565639243" +
+		"68684968218923849458923447972573135862423723904333441872330786434091582216595399208036188109565367105073050" +
+		"19628466572645823801440681649807420172660094126573000139887515466774346436001698389165752785493408275313705" +
+		"70646904337526123314470090772404343585123729255003531576149287549750613692081411866875443165835695629173342" +
+		"472423326462", 10)
 
 	var testCases = []struct {
 		h, n int64
@@ -94,19 +127,20 @@ func TestGenU2Single(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		N := NewRieselNumber(c.h, c.n)
-		v1, _ := GenV1(N, RODSETH)
-		actual := GenU2(N, v1)
+		R, _ := NewRieselNumber(c.h, c.n)
+		v1, _ := GenV1(R, RODSETH)
+		actual, _ := GenU2(R, v1)
 
 		if actual.Cmp(c.expected) != 0 {
-			t.Errorf("GenU2(%v, %v) == %v, but we expected %v", N, v1, actual, c.expected)
+			t.Errorf("GenU2(%v, %v) == %v, but we expected %v", R, v1, actual, c.expected)
 		}
 	}
 }
 
 func TestGenUNSingle(t *testing.T) {
-	t.Skip()
+	t.Skip()	// normally skip the test because it takes a long time to run, enable when useful
 
+	// Test for some known Riesel primes if generating U(n) mod N works as expected.
 	zero := big.NewInt(0)
 
 	var testCases = []struct {
@@ -124,23 +158,23 @@ func TestGenUNSingle(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		N := NewRieselNumber(c.h, c.n)
-		v1, _ := GenV1(N, RODSETH)
-		u2 := GenU2(N, v1)
+		R, _ := NewRieselNumber(c.h, c.n)
+		v1, _ := GenV1(R, RODSETH)
+		u2, _ := GenU2(R, v1)
 
-		actual := GenUN(N, u2)
+		actual, _ := GenUN(R, u2)
 
 		if actual.Cmp(c.expected) != 0 {
-			t.Errorf("GenUN(%v, %v) == %v, but we expected %v", N, u2, actual, c.expected)
+			t.Errorf("GenUN(%v, %v) == %v, but we expected %v", R, u2, actual, c.expected)
 		}
 	}
 }
 
+// region benchmarks
+
 func BenchmarkGenV1Riesel(b *testing.B) {
-
 	for i := 0; i < b.N; i++ {
-
-		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -175,9 +209,8 @@ func BenchmarkGenV1Riesel(b *testing.B) {
 }
 
 func BenchmarkGenV1Rodseth(b *testing.B) {
-
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -212,10 +245,8 @@ func BenchmarkGenV1Rodseth(b *testing.B) {
 }
 
 func BenchmarkGenV1Penne(b *testing.B) {
-
 	for i := 0; i < b.N; i++ {
-
-		if file, err := os.Open("filter_odd_multiple_of_3_h.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -251,7 +282,7 @@ func BenchmarkGenV1Penne(b *testing.B) {
 
 func BenchmarkGenU2Riesel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+		if file, err := os.Open("h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -269,7 +300,7 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 					panic(err)
 				}
 
-				N := NewRieselNumber(int64(h), int64(n))
+				N, _ := NewRieselNumber(int64(h), int64(n))
 
 				v1, err := GenV1(N, RIESEL)
 				if err != nil {
@@ -294,7 +325,7 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 
 func BenchmarkGenU2Rodseth(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+		if file, err := os.Open("h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -312,7 +343,7 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 					panic(err)
 				}
 
-				N := NewRieselNumber(int64(h), int64(n))
+				N, _ := NewRieselNumber(int64(h), int64(n))
 
 				v1, err := GenV1(N, RODSETH)
 				if err != nil {
@@ -337,7 +368,7 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 
 func BenchmarkGenU2Penne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("filter_odd_h_large.out"); err == nil {
+		if file, err := os.Open("h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -355,7 +386,7 @@ func BenchmarkGenU2Penne(b *testing.B) {
 					panic(err)
 				}
 
-				N := NewRieselNumber(int64(h), int64(n))
+				N, _ := NewRieselNumber(int64(h), int64(n))
 
 				v1, err := GenV1(N, PENNE)
 				if err != nil {
@@ -375,42 +406,5 @@ func BenchmarkGenU2Penne(b *testing.B) {
 		} else {
 			panic(err)
 		}
-	}
-}
-
-func TestSquare(t *testing.T) {
-
-	var testCases = []struct {
-		input []float64
-		base int
-		expected []int
-	}{
-		{[]float64 {2, 3}, 10, []int {4, 2, 0, 1}},
-		{[]float64 {5, 4, 3, 2}, 10,[]int {5, 2, 0, 9, 9, 4, 5}},
-
-		{[]float64 {985, 39, 701, 991, 506, 649, 805, 28, 255, 313, 936, 887, 598, 493, 69, 628, 287,
-			118, 157, 134, 791, 602, 195, 59, 254, 381, 508, 573, 525, 233, 765, 606, 446, 268, 260, 682,
-			596, 820, 939, 628, 830, 117, 269, 7},
-			1000,
-			[]int {225, 800, 568, 330, 527, 947, 673, 70, 532, 231, 132, 380, 154, 532, 467, 286,
-				7, 336, 279, 385, 941, 814, 539, 744, 630, 667, 353, 35, 599, 852, 696, 515, 228, 352,
-				873, 346, 123, 328, 83, 231, 850, 216, 389, 780, 674, 911, 200, 363, 318, 871, 927, 783,
-				625, 859, 577, 652, 71, 469, 455, 382, 444, 810, 467, 957, 29, 673, 59, 421, 267, 437,
-				516, 930, 204, 377, 498, 318, 856, 811, 253, 188, 228, 584, 567, 35, 74, 840, 52}},
-	}
-
-	for i, c := range testCases {
-		actual, _ := square(c.input, c.base)
-
-		if !reflect.DeepEqual(actual, c.expected) {
-			t.Errorf("[%v] Something(%v) == %v, but we expected %v", i, c.input, actual, c.expected)
-		}
-	}
-}
-
-func BenchmarkComputation(b *testing.B) {
-
-	for i := 0; i < b.N; i++ {
-		big.NewInt(math.MaxInt64)
 	}
 }

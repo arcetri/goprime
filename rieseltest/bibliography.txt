@@ -1,0 +1,19 @@
+[Ref1]:
+"Lucasian Criteria for the Primality of N=h*2^n-1", by Hans Riesel,
+Mathematics of Computation, Vol 23 #108, pp. 869-875, Oct 1969,
+http://www.ams.org/journals/mcom/1969-23-108/S0025-5718-1969-0262163-1/S0025-5718-1969-0262163-1.pdf
+
+[Ref2]:
+"A note on primality tests for N = h*2^n-1", by Oystein J. Rödseth,
+Department of Mathematics, University of Bergen, BIT Numerical Mathematics. 34 (3): pp 451-454.
+http://folk.uib.no/nmaoy/papers/luc.pdf
+
+[Ref3]:
+LLR Software 3.8.20, Jean Penné, http://jpenne.free.fr/index2.html
+
+[Ref4]:
+“A Grand Coding Challenge! Finding a new Largest Known Prime”, Landon Curt Noll,
+http://www.isthe.com/chongo/tech/math/prime/prime-tutorial.pdf
+
+[Ref5]:
+calc software, Landon Curt Noll, http://www.isthe.com/chongo/tech/comp/calc/
