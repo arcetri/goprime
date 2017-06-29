@@ -10,21 +10,22 @@ import (
 
 	// Mathematical library implementing the necessary methods
 	big "github.com/ricpacca/gmp"
+	"github.com/op/go-logging"
 )
 
 func init() {
-	// By default, disable the logger
-	ConfigureLogger(false, false, 0,0)
+	// By default, disable the loggers
+	ConfigureLogger(false, 0,true, logging.DEBUG)
 }
 
 // IsPrime performs a full Lucas-Lehmer-Riesel primality test on the
-// given Riesel number R, and returns true if the number is prime.
+// given Riesel number R = h * 2^n - 1, and returns true if the number is prime.
 //
 // The test works as follows:
-// 		a) Generate V(1)
-// 		b) From V(1) generate U(2) = V(h)
-// 		c) From U(2) generate U(n)
-// 		d) R is prime is U(n) == 0 (mod R)
+// 		1) Generate V(1)
+// 		2) From V(1) generate U(2) = V(h)
+// 		3) From U(2) generate U(n)
+// 		4) N is prime is U(n) == 0 (mod N)
 //
 // The following conditions must be true for the test to work:
 //		a) n >= 2
@@ -40,46 +41,41 @@ func IsPrime(R *RieselNumber) (bool, error) {
 	}
 
 	// Check if N is a small prime or a multiple of a small prime
-	if check := screenEasyPrimes(R); check != 0 {
-		if check == 1 { return true, nil }
+	if check, err := screenEasyPrimes(R); err == nil && check != 0 {
+		if check == 1 {
+			log.Infof("N = %v is a known prime < 257", R)
+			return true, nil
+		}
+
+		log.Infof("N = %v has a known factor < 257", R)
 		return false, nil
 	}
 
-	// Get a V(1) for the Riesel candidate.
+	// Step 1: Get a V(1) for the Riesel candidate.
+	//
 	// The 'RIESEL' and 'RODSETH' methods are equivalent.
 	// The 'PENNE' method can be faster but finds a higher V(1),
 	// which might slow down the following steps of the test.
 	v1, err := GenV1(R, RODSETH)
+	if err != nil { return false, err }
+	log.Infof("Generated V(1) = %v", v1)
 
-	// If GenV1 returns an error, then we failed to generate
-	// a test for our Riesel candidate.
-	if err != nil {
-		return false, err
-	}
-
-	// Use the generated V(1) to generate U(2) = V(h)
+	// Step 2: Use the generated V(1) to generate U(2) = V(h)
 	u2, err := GenU2(R, v1)
+	if err != nil { return false, err }
+	log.Infof("Generated U(2) = V(h)")
 
-	// If GenU2 returns an error, then we failed to generate
-	// a test for our Riesel candidate.
-	if err != nil {
-		return false, err
-	}
-
-	// Use the generated U(2) to generate U(n)
+	// Step 3: Use the generated U(2) to generate U(n)
 	uN, err := GenUN(R, u2)
+	if err != nil { return false, err }
+	log.Infof("Generated U(n)")
 
-	// If GenUN returns an error, then we failed to generate
-	// a test for our Riesel candidate.
-	if err != nil {
-		return false, err
-	}
-
-	// Check if U(n) == 0 (mod R)
+	// Step 4: Check if U(n) == 0 (mod N)
 	if uN.Cmp(zero) == 0 {
+		log.Infof("N = %v is prime!", R)
 		return true, nil
 	} else {
-		log.Notice("R = %v is not prime because u(n) == %v (mod R)", R, uN)
+		log.Infof("N = %v is composite!", R)
 		return false, nil
 	}
 }
@@ -107,7 +103,7 @@ const (
 //
 // This case is easy. In [Ref1], page 869, one finds that if:
 //		a) h mod 6 == +/-1
-//		b) R mod 3 != 0
+//		b) N mod 3 != 0
 //
 // which translates, given that we assumed odd h, into the condition:
 //		c) h mod 3 != 0
@@ -162,10 +158,11 @@ func GenV1(R *RieselNumber, method uint8) (int64, error) {
 		//		2^(2k) ==  +1 (mod 3)
 		//		2^(2k+1) == -1 (mod 3)
 		if ((hmod3 == 1) && (R.n&1 == 0)) || ((hmod3 == 2) && (R.n&1 == 1)) {
-			return -1, errors.New(fmt.Sprintf("R = %v is a multiple of 3", R))
+			return -1, errors.New(fmt.Sprintf("N = %v is a multiple of 3", R))
 		}
 
 		// In all these cases, we have that v(1) = 4
+		log.Debugf("h = %v is a multiple of 3, thus V(1) = 4", R.h)
 		return 4, nil
 	}
 
@@ -210,14 +207,14 @@ func genV1Rodseth(h, n int64) (int64, error) {
 	// OPTIMIZATION: Store a cache of already computed Jacobi symbols.
 	//
 	// The cache will work as follows:
-	// For every P we check if Jacobi(P-2, R) == +1.
-	// If Jacobi(P-2, R) != +1, we move on to the next P.
-	// If Jacobi(P-2, R) == +1, we check if Jacobi(P+2, R) == -1. If that is verified, we have found
-	// a valid P and we return it, but if that fails, it means that Jacobi(P+2, R) == +1.
+	// For every P we check if Jacobi(P-2, N) == +1.
+	// If Jacobi(P-2, N) != +1, we move on to the next P.
+	// If Jacobi(P-2, N) == +1, we check if Jacobi(P+2, N) == -1. If that is verified, we have found
+	// a valid P and we return it, but if that fails, it means that Jacobi(P+2, N) == +1.
 	//
 	// Four iterations later, when we are considering P'=P+4, our first check will be
-	// Jacobi(P'-2, R) == +1. Notice that P'-2 == P+2. Therefore we might have already computed
-	// Jacobi(P'-2, R), and in that case, we would have had Jacobi(P'-2, R) == +1, so our first
+	// Jacobi(P'-2, N) == +1. Notice that P'-2 == P+2. Therefore we might have already computed
+	// Jacobi(P'-2, N), and in that case, we would have had Jacobi(P'-2, N) == +1, so our first
 	// check is done without the need to compute another Jacobi symbol.
 	//
 	// Thus, the information that we need is whether we had already computed that value and failed
@@ -231,11 +228,11 @@ func genV1Rodseth(h, n int64) (int64, error) {
 	// This cache is used by the efficientJacobi function when we do repeated calls of it.
 	efficientJacobiCache := make(map[int64]int)
 
-	// This function is used to compute the Jacobi(P-2, R) case.
+	// This function is used to compute the Jacobi(P-2, N) case.
 	jacobi_minus := func (x, h, n int64) (int, error) {
 
 		// Check in the cache if that symbol was already computed before.
-		// If it was computed for a P'=P-4, that means that it must have been Jacobi(P'+2, R) == 1,
+		// If it was computed for a P'=P-4, that means that it must have been Jacobi(P'+2, N) == 1,
 		// otherwise the loop would not have reached this point but it would have instead returned a
 		// valid V(1). Thus, if it had been computed before, we simply return 1.
 		//
@@ -244,6 +241,7 @@ func genV1Rodseth(h, n int64) (int64, error) {
 		// we have computed it in the cache, because we will not need to compute Jacobi(P-2) again for
 		// other increasing values of P.
 		if _, ok := cache[x]; ok {
+			log.Debugf("Retrieved Jacobi(%v, N) from the cache", x)
 
 			// We won't need this value anymore, so we can remove it
 			// from the cache to keep it smaller.
@@ -255,10 +253,10 @@ func genV1Rodseth(h, n int64) (int64, error) {
 		}
 	}
 
-	// This function is used to compute the Jacobi(P+2, R) case.
+	// This function is used to compute the Jacobi(P+2, N) case.
 	jacobi_plus := func (x, h, n int64) (int, error) {
 
-		// Since we might need to compute Jacobi(P+2, R) again for a P'=P+4 later,
+		// Since we might need to compute Jacobi(P+2, N) again for a P'=P+4 later,
 		// we store the fact that we have computed it in the cache before returning it.
 		cache[x] = true
 
@@ -271,21 +269,22 @@ func genV1Rodseth(h, n int64) (int64, error) {
 	// 1) Will it ever be the case that the first P verifying these conditions is P > 2^64 - 1?
 	// 2) Could we safely consider only odd values of P?
 	for P := int64(3); P < math.MaxInt64; P++ {
-
 		var j_minus int
 		var j_plus int
 		var err error
 
-		// Compute Jacobi(P - 2, R) and check for condition 1
+		// Compute Jacobi(P - 2, N) and check for condition 1
 		if j_minus, err = jacobi_minus(P - 2, h, n); err == nil && j_minus == 1 {
+			log.Debugf("Jacobi(%v - 2, N) == 1: 1st condition passed", P)
 
-			// Compute Jacobi(P + 2, R) and check for condition 2
+			// Compute Jacobi(P + 2, N) and check for condition 2
 			if j_plus, err = jacobi_plus(P + 2, h, n); err == nil && j_plus == -1 {
+				log.Debugf("Jacobi(%v + 2, N) == -1: 2nd condition passed", P)
 				return P, nil
 			}
 		}
 
-		// Return an error when we have found a factor of R
+		// Return an error when we have found a factor of N
 		if err != nil {
 			return -1, err
 		}
@@ -336,10 +335,10 @@ func genV1Riesel(h, n int64) (int64, error) {
 		// Therefore, when D is even, we can get its odd part by simply dividing it by 2.
 		// When D is odd, we don't need to divide it (since dividing it by 2^0 = 1 is same as not dividing).
 		//
-		// We compute dred for later computing Jacobi(D, R), because it is more efficient to
-		// compute Jacobi(R, D) thanks to the properties of the Jacobi symbol. However, if D
+		// We compute dred for later computing Jacobi(D, N), because it is more efficient to
+		// compute Jacobi(N, D) thanks to the properties of the Jacobi symbol. However, if D
 		// is even, we need to reduce it to an odd dred. That is not a problem, because we will
-		// later take into account the sign difference between Jacobi(D, R) and Jacobi(R, dred)
+		// later take into account the sign difference between Jacobi(D, N) and Jacobi(N, dred)
 		// and compute the former through the latter.
 		var dred int64
 		if (D & 1) == 1 {
@@ -349,14 +348,14 @@ func genV1Riesel(h, n int64) (int64, error) {
 		}
 
 		// Since we use dred instead of D, we have to take into account the sign difference
-		// between Jacobi(D, R) and Jacobi(dred, R).
+		// between Jacobi(D, N) and Jacobi(dred, N).
 		//
 		// When D is odd, dred == D, and therefore there is no sign difference between
-		// Jacobi(D, R) and Jacobi(dred, R).
+		// Jacobi(D, N) and Jacobi(dred, N).
 		//
 		// When n > 2, sign = +1 as well. In fact, when D is even and n > 2, we have that:
 		//
-		// sign = Jacobi(D, R) / Jacobi(dred, R) = Jacobi(2,R) = (-1)^((R-1)*(R+1)/8) =
+		// sign = Jacobi(D, N) / Jacobi(dred, N) = Jacobi(2, N) = (-1)^((N-1)*(N+1)/8) =
 		// (-1)^((h*2^n-2)*(h*2^n)/8) = (-1)^((h*2^(n-1)-1)*h*2^(n-2))
 		//
 		// --> sign = +1 if D is odd OR n > 2
@@ -370,10 +369,10 @@ func genV1Riesel(h, n int64) (int64, error) {
 
 		if hmodd := int64(h) % dred; hmodd == 0 && sign == true {
 
-			// When h == 0 (mod dred), then R == -1 (mod dred), and therefore,
+			// When h == 0 (mod dred), then N == -1 (mod dred), and therefore,
 			// keeping in mind that n >= 2, we can write:
 			//
-			// Jacobi(dred, R) = Jacobi(R, dred) * (-1)^((R-1)*(dred-1)/4) =
+			// Jacobi(dred, N) = Jacobi(N, dred) * (-1)^((N-1)*(dred-1)/4) =
 			// = Jacobi(-1, dred) * (-1)^((h*2^n-2)/2*(dred-1)/2) =
 			// = (-1)^((dred-1)/2) * (-1)^((h*2^(n-1)-1)*(dred-1)/2) =
 			//
@@ -388,19 +387,20 @@ func genV1Riesel(h, n int64) (int64, error) {
 			// In both of the cases, since the signs are concordant, we have that:
 			// (-1)^((dred-1)/2) * (-1)^((h*2^(n-1)-1)*(dred-1)/2) = +1
 			//
-			// Thus, Jacobi(dred, R) = 1.
+			// Thus, Jacobi(dred, N) = 1.
 			//
 			// We can immediately verify if the current candidate for V(1) is valid:
-			//      when sign == false, then Jacobi(D,R) = -1  ->  Check VALID
-			//      when sign == true, then Jacobi(D,R) = 1  -> Check NOT VALID
+			//      when sign == false, then Jacobi(D, N) = -1  ->  Check VALID
+			//      when sign == true, then Jacobi(D, N) = 1  -> Check NOT VALID
+			log.Debugf("[C1] Jacobi(%v, N) = 1: %v is not a valid candidate for V(1)", D, v)
 			continue
 
 		} else if hmodd != 0 {
 
-			// Count the sign difference between Jacobi(dred, R) and Jacobi(R, dred).
+			// Count the sign difference between Jacobi(dred, N) and Jacobi(N, dred).
 			// Using the expression in the above comment, we know that:
 			//
-			// Jacobi(dred, R) / Jacobi(R, dred) = (-1)^((R-1)/2*(dred-1)/2) =
+			// Jacobi(dred, N) / Jacobi(N, dred) = (-1)^((N-1)/2*(dred-1)/2) =
 			// = (-1)^((h*2^(n-1)-1)*(dred-1)/2)
 			//
 			// Now, since (h*2^(n-1)-1) is always odd, the sign difference depends
@@ -411,14 +411,15 @@ func genV1Riesel(h, n int64) (int64, error) {
 			//		(dred mod 4 == 3) -> (dred-1)/2 is odd -> (-1)^((h*2^(n-1)-1)*(dred-1)/2) = -1
 			if (dred % 4) == 3 { sign = !sign }
 
-			// Compute Jacobi(R,dred) or get it from the cache if it was already computed.
+			// Compute Jacobi(N, dred) or get it from the cache if it was already computed.
 			var jNd int
 			if val, ok := cache[dred]; ok {
+				log.Debugf("Retrieved Jacobi(N, %v) from the cache", dred)
 				jNd = val
 
 			} else {
 
-				// Jacobi(R, dred) = Jacobi(h * 2^n - 1, dred) =
+				// Jacobi(N, dred) = Jacobi(h * 2^n - 1, dred) =
 				// Jacobi(((h mod dred) * (2^n mod dred) - 1) mod dred, dred)
 				twonModd, err := modExp(2, n, dred)
 				if err != nil {
@@ -427,33 +428,35 @@ func genV1Riesel(h, n int64) (int64, error) {
 
 				Nmodd := (hmodd * twonModd - 1 + dred) % dred
 
-				// Check if dred divides R (just in case)
+				// Check if dred divides N (just in case)
 				if (Nmodd == 0) && (dred != 1) {
-					return -1, errors.New(fmt.Sprintf("%v divides R: R does not need to be tested further.", dred))
+					return -1, errors.New(fmt.Sprintf("%v divides N: N does not need to be tested " +
+						"further.", dred))
 				}
 
 				jNd = big.Jacobi(new(big.Int).SetInt64(Nmodd), new(big.Int).SetInt64(dred))
 
-				// Check if GCD(R, dred) != 1
-				// If GCD(R, dred) != 1, then R has a divisor > 1, and does not need to be tested further.
+				// Check if GCD(N, dred) != 1
+				// If GCD(N, dred) != 1, then N has a divisor > 1, and does not need to be tested further.
 				if jNd == 0 {
-					return -1, errors.New("R has a known factor, it does not need to be tested further.")
+					return -1, errors.New("N has a known factor, it does not need to be tested further.")
 				}
 
-				// Store the computed Jacobi(R, dred) in the cache for potential later use
+				// Store the computed Jacobi(N, dred) in the cache for potential later use
 				cache[dred] = jNd
 			}
 
-			// Verify that the resulting Jacobi(D, R) == -1
+			// Verify that the resulting Jacobi(D, N) == -1
 			//
 			// This is the first condition of the Riesel theorem. If the candidate
 			// V(1) does not satisfy it, we can move to the next candidate.
 			if ((sign == true) && (jNd == 1)) || ((sign == false) && (jNd == -1)) {
+				log.Debugf("[C1] Jacobi(%v, N) = 1: %v is not a valid candidate for V(1)", D, v)
 				continue
 			}
 		}
 
-		// If we reached this point, it means that Jacobi(D, R) == -1.
+		// If we reached this point, it means that Jacobi(D, N) == -1.
 		//
 		// Now, we check if we are in the case where alpha = epsilon^2, by verifying if
 		// V(1) − 2 is a perfect square. If we are in this case, we do not need to
@@ -464,6 +467,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 		//
 		// Read TODO paper for a better explanation of this
 		if X, err := sqrtOrZero(v - 2); X != 0 && err == nil {
+			log.Debugf("%v-2 is a perfect square -> alpha = epsilon^2 -> %v is a valid V(1) candidate", v, v)
 			return v, nil
 
 		} else if err != nil {
@@ -472,20 +476,20 @@ func genV1Riesel(h, n int64) (int64, error) {
 		} else {
 
 			// Now we need to verify the second condition of Riesel's theorem, i.e.:
-			// Jacobi(r, R) * (a^2 - b^2 * D) / r == -1  [C2]
+			// Jacobi(r, N) * (a^2 - b^2 * D) / r == -1  [C2]
 			//
 			// As TODO explains, it can be shown that r = 4a, and therefore we can write:
-			// Jacobi(r, R) = Jacobi(4a, R) = Jacobi(4, R) * Jacobi(a, R) = Jacobi(a, R)
+			// Jacobi(r, N) = Jacobi(4a, N) = Jacobi(4, N) * Jacobi(a, N) = Jacobi(a, N)
 			// where either a = v + 2 or a = v - 2.
 			//
 			// Since it is equivalent to choose any of them, we choose a = v - 2 which is smaller.
 			//
-			// Now, to compute Jacobi (a, R), we will use some optimizations similar to the ones that
-			// we used to compute Jacobi(R, D).
+			// Now, to compute Jacobi (a, N), we will use some optimizations similar to the ones that
+			// we used to compute Jacobi(N, D).
 			//
 			// If a is even, we want to reduce it to an odd number. We keep count of how many times we
 			// divide a by 2 to be able to later take into account the sign difference between
-			// Jacobi (a, R) and Jacobi (ared, R).
+			// Jacobi (a, N) and Jacobi (ared, N).
 			a := v - 2
 			ared := a
 			i := 0
@@ -498,7 +502,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 			}
 
 			// TODO Ref shows that:
-			// Jacobi(r, R) * (a^2 - b^2 * D) / r = Jacobi(r, R) * sgn(a^2 − b^2 * D)
+			// Jacobi(r, N) * (a^2 - b^2 * D) / r = Jacobi(r, N) * sgn(a^2 − b^2 * D)
 			//
 			// Moreover, for our a, we have that:
 			// a^2 - b^2 * D = (v - 2)^2 - D * b^2 =
@@ -507,12 +511,12 @@ func genV1Riesel(h, n int64) (int64, error) {
 			// Therefore we start with sign = false == -1.
 			sign = false
 
-			// Now, let's check the sign difference between Jacobi(a, R) and Jacobi(ared, R).
+			// Now, let's check the sign difference between Jacobi(a, N) and Jacobi(ared, N).
 			//
 			// When a is odd, ared == a, and therefore there is no sign difference between
-			// Jacobi(a, R) and Jacobi(ared, R). Moreover:
+			// Jacobi(a, N) and Jacobi(ared, N). Moreover:
 			//
-			// sign = Jacobi(a, R) / Jacobi(ared, R) = (Jacobi(2, R))^i = ... =
+			// sign = Jacobi(a, N) / Jacobi(ared, N) = (Jacobi(2, N))^i = ... =
 			// = ((-1)^((h*2^(n-1)-1)*h*2^(n-2)))^i
 			//
 			// --> sign = sign if: a is odd OR i is even OR n > 2
@@ -526,10 +530,10 @@ func genV1Riesel(h, n int64) (int64, error) {
 
 			if hmoda := h % ared; hmoda == 0 && sign == true {
 
-				// When h == 0 (mod ared), then R == -1 (mod ared), and therefore,
+				// When h == 0 (mod ared), then N == -1 (mod ared), and therefore,
 				// keeping in mind that n >= 2, we can write:
 				//
-				// Jacobi(ared, R) = Jacobi(R, ared) * (-1)^((R-1)*(ared-1)/4) =
+				// Jacobi(ared, N) = Jacobi(N, ared) * (-1)^((N-1)*(ared-1)/4) =
 				// = Jacobi(-1, ared) * (-1)^((h*2^n-2)/2*(ared-1)/2) =
 				// = (-1)^((ared-1)/2) * (-1)^((h*2^(n-1)-1)*(ared-1)/2) =
 				//
@@ -544,19 +548,20 @@ func genV1Riesel(h, n int64) (int64, error) {
 				// In both of the cases, since the signs are concordant, we have that:
 				// (-1)^((ared-1)/2) * (-1)^((h*2^(n-1)-1)*(ared-1)/2) = +1
 				//
-				// Thus, Jacobi(ared, R) = 1.
+				// Thus, Jacobi(ared, N) = 1.
 				//
 				// We can immediately verify if the current candidate for V(1) is valid:
 				//      when sign == false, then C2 = -1  ->  Check VALID
 				//      when sign == true, then C2 = 1  -> Check NOT VALID
+				log.Debugf("[C2] Jacobi(%v, N) * sign = 1: %v is NOT a valid candidate for V(1)", ared, v)
 				continue
 
 			} else if hmoda != 0 {
 
-				// Check the sign difference between Jacobi(ared, R) and Jacobi(R, ared)
+				// Check the sign difference between Jacobi(ared, N) and Jacobi(N, ared)
 				// Using the expression in the above comment, we know that:
 				//
-				// Jacobi(ared, R) / Jacobi(R, ared) = (-1)^((R-1)/2*(ared-1)/2) =
+				// Jacobi(ared, N) / Jacobi(N, ared) = (-1)^((N-1)/2*(ared-1)/2) =
 				// = (-1)^((h*2^(n-1)-1)*(ared-1)/2)
 				//
 				// Since (h*2^(n-1)-1) is always odd, the result depends on whether (ared-1)/2 is even or odd.
@@ -566,14 +571,15 @@ func genV1Riesel(h, n int64) (int64, error) {
 				//		(ared mod 4 == 3) -> (ared-1)/2 is odd -> (-1)^((h*2^(n-1)-1)*(ared-1)/2) = -1
 				if (ared % 4) == 3 { sign = !sign }
 
-				// Compute Jacobi(R,ared) or get it from the cache if it was already computed.
+				// Compute Jacobi(N,ared) or get it from the cache if it was already computed.
 				var jNa int
 				if val, ok := cache[ared]; ok {
+					log.Debugf("Retrieved Jacobi(N, %v) from the cache", ared)
 					jNa = val
 
 				} else {
 
-					// Jacobi(R, ared) = Jacobi(h * 2^n - 1, ared) =
+					// Jacobi(N, ared) = Jacobi(h * 2^n - 1, ared) =
 					// Jacobi(((h mod ared) * (2^n mod ared) - 1) mod ared, ared)
 					twonModa, err := modExp(2, n, ared)
 					if err != nil {
@@ -582,27 +588,28 @@ func genV1Riesel(h, n int64) (int64, error) {
 
 					Nmoda := (hmoda * twonModa - 1 + ared) % ared
 
-					// Check if dred divides R (just in case)
+					// Check if dred divides N (just in case)
 					if (Nmoda == 0) && (ared != 1) {
-						return -1, errors.New(fmt.Sprintf("%v divides R: R does not need to be tested " +
+						return -1, errors.New(fmt.Sprintf("%v divides N: N does not need to be tested " +
 							"further.", ared))
 					}
 
 					jNa = big.Jacobi(new(big.Int).SetInt64(Nmoda), new(big.Int).SetInt64(ared))
 
-					// Check if GCD(R, ared) != 1
-					// If GCD(R, ared) != 1, then R has a divisor > 1, and does not need to be tested further.
+					// Check if GCD(N, ared) != 1
+					// If GCD(N, ared) != 1, then N has a divisor > 1, and does not need to be tested further.
 					if jNa == 0 {
-						return -1, errors.New("R has a known factor, it does not need to be tested further.")
+						return -1, errors.New("N has a known factor, it does not need to be tested further.")
 					}
 
-					// Store the computed Jacobi(R, ared) in the cache for potential later use
+					// Store the computed Jacobi(N, ared) in the cache for potential later use
 					cache[ared] = jNa
 				}
 
 				// Verify that C2 is verified.
 				// If the candidate V(1) does not satisfy it, we move to the next candidate.
 				if ((sign == true) && (jNa == 1)) || ((sign == false) && (jNa == -1)) {
+					log.Debugf("[C2] Jacobi(%v, N) * sign = 1: %v is not a valid candidate for V(1)", ared, v)
 					continue
 				}
 			}
@@ -656,10 +663,10 @@ func genV1Penne(h, n int64) (int64, error) {
 		// Therefore, when D is even, we can get its odd part by simply dividing it by 2.
 		// When D is odd, we don't need to divide it (since dividing it by 2^0 = 1 is same as not dividing).
 		//
-		// We compute dred for later computing Jacobi(D, R), because it is more efficient to
-		// compute Jacobi(R, D) thanks to the properties of the Jacobi symbol. However, if D
+		// We compute dred for later computing Jacobi(D, N), because it is more efficient to
+		// compute Jacobi(N, D) thanks to the properties of the Jacobi symbol. However, if D
 		// is even, we need to reduce it to an odd dred. That is not a problem, because we will
-		// later take into account the sign difference between Jacobi(D, R) and Jacobi(R, dred)
+		// later take into account the sign difference between Jacobi(D, N) and Jacobi(N, dred)
 		// and compute the former through the latter.
 		var dred int64
 		if (D & 1) == 1 {
@@ -669,14 +676,14 @@ func genV1Penne(h, n int64) (int64, error) {
 		}
 
 		// Since we use dred instead of D, we have to take into account the sign difference
-		// between Jacobi(D, R) and Jacobi(dred, R).
+		// between Jacobi(D, N) and Jacobi(dred, N).
 		//
 		// When D is odd, dred == D, and therefore there is no sign difference between
-		// Jacobi(D, R) and Jacobi(dred, R).
+		// Jacobi(D, N) and Jacobi(dred, N).
 		//
 		// When n > 2, sign = +1 as well. In fact, when D is even and n > 2, we have that:
 		//
-		// sign = Jacobi(D, R) / Jacobi(dred, R) = Jacobi(2,R) = (-1)^((R-1)*(R+1)/8) =
+		// sign = Jacobi(D, N) / Jacobi(dred, N) = Jacobi(2, N) = (-1)^((N-1)*(N+1)/8) =
 		// (-1)^((h*2^n-2)*(h*2^n)/8) = (-1)^((h*2^(n-1)-1)*h*2^(n-2))
 		//
 		// --> sign = +1 if D is odd OR n > 2
@@ -690,10 +697,10 @@ func genV1Penne(h, n int64) (int64, error) {
 
 		if hmodd := h % dred; hmodd == 0 && sign == true {
 
-			// When h == 0 (mod dred), then R == -1 (mod dred), and therefore,
+			// When h == 0 (mod dred), then N == -1 (mod dred), and therefore,
 			// keeping in mind that n >= 2, we can write:
 			//
-			// Jacobi(dred, R) = Jacobi(R, dred) * (-1)^((R-1)*(dred-1)/4) =
+			// Jacobi(dred, N) = Jacobi(N, dred) * (-1)^((N-1)*(dred-1)/4) =
 			// = Jacobi(-1, dred) * (-1)^((h*2^n-2)/2*(dred-1)/2) =
 			// = (-1)^((dred-1)/2) * (-1)^((h*2^(n-1)-1)*(dred-1)/2) =
 			//
@@ -708,19 +715,19 @@ func genV1Penne(h, n int64) (int64, error) {
 			// In both of the cases, since the signs are concordant, we have that:
 			// (-1)^((dred-1)/2) * (-1)^((h*2^(n-1)-1)*(dred-1)/2) = +1
 			//
-			// Thus, Jacobi(dred, R) = 1.
+			// Thus, Jacobi(dred, N) = 1.
 			//
 			// We can immediately verify if the current candidate for V(1) is valid:
-			//      when sign == false, then Jacobi(D,R) = -1  ->  Check VALID
-			//      when sign == true, then Jacobi(D,R) = 1  -> Check NOT VALID
+			//      when sign == false, then Jacobi(D, N) = -1  ->  Check VALID
+			//      when sign == true, then Jacobi(D, N) = 1  -> Check NOT VALID
 			continue
 
 		} else if hmodd != 0 {
 
-			// Count the sign difference between Jacobi(dred, R) and Jacobi(R, dred).
+			// Count the sign difference between Jacobi(dred, N) and Jacobi(N, dred).
 			// Using the expression in the above comment, we know that:
 			//
-			// Jacobi(dred, R) / Jacobi(R, dred) = (-1)^((R-1)/2*(dred-1)/2) =
+			// Jacobi(dred, N) / Jacobi(N, dred) = (-1)^((N-1)/2*(dred-1)/2) =
 			// = (-1)^((h*2^(n-1)-1)*(dred-1)/2)
 			//
 			// Now, since (h*2^(n-1)-1) is always odd, the sign difference depends
@@ -731,14 +738,14 @@ func genV1Penne(h, n int64) (int64, error) {
 			//		(dred mod 4 == 3) -> (dred-1)/2 is odd -> (-1)^((h*2^(n-1)-1)*(dred-1)/2) = -1
 			if (dred % 4) == 3 { sign = !sign }
 
-			// Compute Jacobi(R,dred) or get it from the cache if it was already computed.
+			// Compute Jacobi(N,dred) or get it from the cache if it was already computed.
 			var jNd int
 			if val, ok := cache[dred]; ok {
 				jNd = val
 
 			} else {
 
-				// Jacobi(R, dred) = Jacobi(h * 2^n - 1, dred) =
+				// Jacobi(N, dred) = Jacobi(h * 2^n - 1, dred) =
 				// Jacobi(((h mod dred) * (2^n mod dred) - 1) mod dred, dred)
 				twonModd, err := modExp(2, n, dred)
 				if err != nil {
@@ -747,24 +754,24 @@ func genV1Penne(h, n int64) (int64, error) {
 
 				Nmodd := (hmodd * twonModd - 1 + dred) % dred
 
-				// Check if dred divides R (just in case)
+				// Check if dred divides N (just in case)
 				if (Nmodd == 0) && (dred != 1) {
-					return -1, errors.New(fmt.Sprintf("%v divides R: R does not need to be tested further.", dred))
+					return -1, errors.New(fmt.Sprintf("%v divides N: N does not need to be tested further.", dred))
 				}
 
 				jNd = big.Jacobi(new(big.Int).SetInt64(Nmodd), new(big.Int).SetInt64(dred))
 
-				// Check if GCD(R, dred) != 1
-				// If GCD(R, dred) != 1, then R has a divisor > 1, and does not need to be tested further.
+				// Check if GCD(N, dred) != 1
+				// If GCD(N, dred) != 1, then N has a divisor > 1, and does not need to be tested further.
 				if jNd == 0 {
-					return -1, errors.New("R has a known factor, it does not need to be tested further.")
+					return -1, errors.New("N has a known factor, it does not need to be tested further.")
 				}
 
-				// Store the computed Jacobi(R, dred) in the cache for potential later use
+				// Store the computed Jacobi(N, dred) in the cache for potential later use
 				cache[dred] = jNd
 			}
 
-			// Verify that the resulting Jacobi(D, R) == -1
+			// Verify that the resulting Jacobi(D, N) == -1
 			//
 			// This is the first condition of the Riesel theorem. If the candidate
 			// V(1) does not satisfy it, we can move to the next candidate.
@@ -774,7 +781,7 @@ func genV1Penne(h, n int64) (int64, error) {
 		}
 
 		// In this case, when D is the square-free part of X^2+4, it can be proved that
-		// alpha is always of the form epsilon^2, so, Jacobi(D, R) == -1 is sufficient for v to
+		// alpha is always of the form epsilon^2, so, Jacobi(D, N) == -1 is sufficient for v to
 		// be valid for Riesel's theorem 5.
 		return x * x + 2, nil
 	}
@@ -803,7 +810,7 @@ func genV1Penne(h, n int64) (int64, error) {
 //		V(2*x) = V(x)^2 - 2
 //		V(2*x+1) = V(x+1) * V(x) - V(1)
 //
-// To prevent V(x) from growing too large, we will replace all V(x) with (V(x) mod R).
+// To prevent V(x) from growing too large, we will replace all V(x) with (V(x) mod N).
 func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 
 	// Check preconditions
@@ -820,31 +827,26 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 		return nil, errors.New(fmt.Sprintf("Expected v1 >= 3, but received v1 = %v", v1))
 	}
 
-	// rieselModCh computes (v mod R) and sends the result to the given channel c
-	rieselModCh := func(a *big.Int, N *RieselNumber, c chan *big.Int) {
-		c <- rieselMod(a, N)
-	}
-
 	// Compute V(1) as big.Int for later arithmetic
 	v1_big := new(big.Int)
 	v1_big.SetInt64(v1)
 
-	// vTwoXPlusOne computes and returns:
-	// V(2*x+1) = V(x+1) * V(x) - V(1)
+	// vTwoXPlusOne computes: V(2*x+1) = V(x+1) * V(x) - V(1)
+	// and sends the result to the given channel c
 	vTwoXPlusOne := func(vXPlus1, vX *big.Int, c chan *big.Int) {
 		tmp := new(big.Int)
 		tmp.Mul(vX, vXPlus1)
 		tmp.Sub(tmp, v1_big)
-		rieselModCh(tmp, R, c)
+		c <- rieselMod(tmp, R)
 	}
 
-	// vTwoX computes and returns:
-	// V(2*x) = V(x)^2 - 2
+	// vTwoX computes: V(2*x) = V(x)^2 - 2
+	// and sends the result to the given channel c
 	vTwoX := func(vX *big.Int, c chan *big.Int) {
 		tmp := new(big.Int)
 		tmp.Mul(vX, vX)
 		tmp.Sub(tmp, two)
-		rieselModCh(tmp, R, c)
+		c <- rieselMod(tmp, R)
 	}
 
 	// r represents V(x) at every iteration,
@@ -853,7 +855,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 	// r = V(1)
 	r := new(big.Int).Set(v1_big)
 
-	// If h == 1, we simply return: V(1) mod R
+	// If h == 1, we simply return: V(1) mod N
 	if R.h == 1 {
 		return rieselMod(r, R), nil
 	}
@@ -932,7 +934,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 	return r, nil
 }
 
-// GenUN computes U(R) for the given Riesel candidate.
+// GenUN computes U(n) for the given Riesel candidate.
 //
 // This function assumes:
 //		a) n >= 2
@@ -943,7 +945,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 // We calculate each term of the Lucas sequence sequentially as follows:	(Ref1, page 871)
 //		U(x+1) = U(x)^2 - 2
 //
-// To prevent U(x) from growing too large, we will replace all U(x) with (U(x) mod R).
+// To prevent U(x) from growing too large, we will replace all U(x) with (U(x) mod N).
 func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 
 	// Check preconditions
@@ -960,12 +962,17 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		return nil, errors.New(fmt.Sprintf("Expected u > 0, but received u = %v", u))
 	}
 
+	logPoint := int64((R.n - 2) / 10)
+
 	for i := int64(3); i <= R.n; i++ {
 
-		// u = (u^2 - 2) mod R
+		// u = (u^2 - 2) mod N
 		u.Mul(u, u)
 		u.Sub(u, two)
 		u = rieselMod(u, R)
+
+		log.Debugf("U(%v) mod N = %v", i, u)
+		if i % logPoint == 0 { log.Infof("Current GenUN progress: ~%.0f%%", float64(100 * i) / float64(R.n - 2)) }
 	}
 
 	return u, nil

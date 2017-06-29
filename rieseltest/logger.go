@@ -11,8 +11,14 @@ import (
 // Initialize logger to be used in this package
 var log = logging.MustGetLogger("rieseltest")
 
-func ConfigureLogger(file, terminal bool, fileLevel, terminalLevel logging.Level, ) {
-
+// ConfigureLogger allows to enable file and terminal outputs for the log messages
+// The available logging levels are:
+//
+// 		DEBUG < INFO < NOTICE < WARNING < ERROR < CRITICAL
+//
+// It is not recommended to set the level of any backend to DEBUG unless for very specific
+// debugging reasons. If you do so, expect a lot of logs and a considerable slowing down in performance.
+func ConfigureLogger(file bool, fileLevel logging.Level, terminal bool, terminalLevel logging.Level) {
 	var backendList []logging.Backend
 
 	if terminal {
@@ -20,17 +26,17 @@ func ConfigureLogger(file, terminal bool, fileLevel, terminalLevel logging.Level
 		terminalFormat := logging.MustStringFormatter("%{color}[%{shortfunc}]%{color:reset} " +
 			"%{time:15:04:05.000} %{color}%{level:.4s}%{color:reset} -> %{message}")
 		terminalBackend := logging.NewLogBackend(os.Stdout, "", 0)
+		terminalBackendFormatted := logging.NewBackendFormatter(terminalBackend, terminalFormat)
 
 		// Only messages of the specified minimum level or higher should be sent to the terminal backend
-		terminalBackendLeveled := logging.AddModuleLevel(terminalBackend)
+		terminalBackendLeveled := logging.AddModuleLevel(terminalBackendFormatted)
 		terminalBackendLeveled.SetLevel(terminalLevel, "")
-		terminalBackendFormatter := logging.NewBackendFormatter(terminalBackendLeveled, terminalFormat)
 
-		backendList = append(backendList, terminalBackendFormatter)
+		backendList = append(backendList, terminalBackendLeveled)
 	}
 
 	if file {
-		// Set a custom formatting for the logs sent to the terminal
+		// Set a custom formatting for the logs sent to files
 		fileFormat := logging.MustStringFormatter("[%{pid} - %{shortfunc}] %{time:15:04:05.000} " +
 			"%{level:.4s} -> %{message}")
 
@@ -44,11 +50,11 @@ func ConfigureLogger(file, terminal bool, fileLevel, terminalLevel logging.Level
 		}, "", 0)
 
 		// Only messages of the specified minimum level or higher should be sent to the file backend
-		fileBackendLeveled := logging.AddModuleLevel(fileBackend)
+		fileBackendFormatted := logging.NewBackendFormatter(fileBackend, fileFormat)
+		fileBackendLeveled := logging.AddModuleLevel(fileBackendFormatted)
 		fileBackendLeveled.SetLevel(fileLevel, "")
-		fileBackendFormatter := logging.NewBackendFormatter(fileBackendLeveled, fileFormat)
 
-		backendList = append(backendList, fileBackendFormatter)
+		backendList = append(backendList, fileBackendLeveled)
 	}
 
 	// Set the enabled backends for the logger

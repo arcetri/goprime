@@ -99,9 +99,11 @@ func lround(a float64) int64 {
 // reduce reduces the given x to a square free integer.
 // In other words: given x, it computes d, without square factor, and b, such as:
 // 		x = d*b^2
+//
+// NOTE: This function has been copied from the LLR software's "reduce" [Ref3].
 func reduce(x int64) (b int64, d int64) {
 
-	// Cover small easy cases
+	// Handle small easy cases
 	if x < 4 {
 		return x, 1
 	}
@@ -135,6 +137,8 @@ func reduce(x int64) (b int64, d int64) {
 //
 // This function requires:
 //		a) n > 0
+//
+// NOTE: This function has been copied from the LLR software's "issquare" function [Ref3].
 func sqrtOrZero(n int64) (int64, error) {
 
 	// Check preconditions
@@ -193,7 +197,6 @@ func modExp(base, exponent, modulus int64) (int64, error) {
 func rieselMod(a *big.Int, R *RieselNumber) *big.Int {
 	ret := new(big.Int).Set(a)
 
-	// TODO benchmark
 	if R.N.Cmp(maxInt64) == -1 {
 		ret.Mod(ret, R.N)
 		return ret
@@ -253,34 +256,34 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 	sign := true
 
 	// While x is even, we have:
-	// 		Jacobi(x, R) == Jacobi(2, R) * Jacobi(x/2, R)
+	// 		Jacobi(x, N) == Jacobi(2, N) * Jacobi(x/2, N)
 	//
 	// First of all, we can write:
-	//		Jacobi(2,R) = (-1)^((R-1)*(R+1)/8) =
+	//		Jacobi(2,N) = (-1)^((N-1)*(N+1)/8) =
 	// 		= (-1)^((h*2^n-2)*(h*2^n)/8) = (-1)^((h*2^(n-1)-1)*h*2^(n-2))
 	//
-	// And notice that Jacobi(2,R) == -1 only when (n == 2).
+	// And notice that Jacobi(2,N) == -1 only when (n == 2).
 	// In fact, when n != 2, the term 2^(n-2) is always even and any number
 	// multiplied by an even number is even, leading to a positive power in our case.
 	//
 	// Our sign will be as follows:
-	// sign = Jacobi(x, R) / Jacobi(x_reduced, R) = (Jacobi(2, R)) * ... * (Jacobi(2, R))
+	// sign = Jacobi(x, N) / Jacobi(x_reduced, N) = (Jacobi(2, N)) * ... * (Jacobi(2, N))
 	//
 	// Thus, we can divide x by 2 until it is odd and flip the sign in all those cases
-	// when (Jacobi(2, R)) == -1.
+	// when (Jacobi(2, N)) == -1.
 	for (x & 1) == 0 {
 		x >>= 1		// a = a / 2
 		if n == 2 { sign = !sign }
 	}
 
 	// At this point, we know that x is odd, and we can
-	// proceed with computing Jacobi(x, R).
+	// proceed with computing Jacobi(x, N).
 	if hModX := h % x; hModX == 0 {
 
-		// When h == 0 (mod x), then R == -1 (mod x), and therefore,
+		// When h == 0 (mod x), then N == -1 (mod x), and therefore,
 		// keeping in mind that n >= 2, we can write:
 		//
-		// Jacobi(x, R) = Jacobi(R, x) * (-1)^((R-1)*(x-1)/4) =
+		// Jacobi(x, N) = Jacobi(N, x) * (-1)^((N-1)*(x-1)/4) =
 		// = Jacobi(-1, x) * (-1)^((h*2^n-2)/2*(x-1)/2) =
 		// = (-1)^((x-1)/2) * (-1)^((h*2^(n-1)-1)*(x-1)/2) =
 		//
@@ -295,7 +298,7 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 		// In both of the cases, since the signs are concordant, we have that:
 		// (-1)^((x-1)/2) * (-1)^((h*2^(n-1)-1)*(x-1)/2) = +1
 		//
-		// Thus, Jacobi(x, R) = 1.
+		// Thus, Jacobi(x, N) = 1.
 		//
 		// We just need to take into consideration the sign difference due to
 		// having previously reduced x to odd.
@@ -310,10 +313,10 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 		// This is the general case.
 		//
 		// Given that we know that x is odd, we can write:
-		// 		Jacobi(x, R) = Jacobi(R, x) * (-1)^((R-1)/2*(x-1)/2) =
+		// 		Jacobi(x, N) = Jacobi(N, x) * (-1)^((N-1)/2*(x-1)/2) =
 		// 		= Jacobi(((h mod x) * (2^n mod x) - 1) mod x, x) * (-1)^((h*2^(n-1)-1)*(x-1)/2)
 		//
-		// Let's start by computing Jacobi(R, x) or getting it from the computedJNX
+		// Let's start by computing Jacobi(N, x) or getting it from the computedJNX
 		// cache if it was already computed.
 		var jNx int
 		if val, ok := cache[x]; ok {
@@ -321,7 +324,7 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 
 		} else {
 
-			// Jacobi(R, x) = Jacobi(((h mod x) * (2^n mod x) - 1) mod x, x).
+			// Jacobi(N, x) = Jacobi(((h mod x) * (2^n mod x) - 1) mod x, x).
 			twoNModX, err := modExp(2, n, x)
 			if err != nil {
 				return 0, errors.New("Something went wrong: n or x were negative")
@@ -329,27 +332,27 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 
 			NModX := (hModX * twoNModX - 1 + x) % x
 
-			// Check if x divides R (just in case)
+			// Check if x divides N (just in case)
 			if (NModX == 0) && (x != 1) {
-				return 0, errors.New("R has a known factor, it does not need to be tested further.")
+				return 0, errors.New("N has a known factor, it does not need to be tested further.")
 			}
 
-			// Now we can compute Jacobi(R, x) on smaller numbers
+			// Now we can compute Jacobi(N, x) on smaller numbers
 			jNx = big.Jacobi(new(big.Int).SetInt64(NModX), new(big.Int).SetInt64(x))
 
-			// Check if GCD(R, x) != 1
-			// If GCD(R, x) != 1, then R has a divisor > 1, and does not need to be tested further.
+			// Check if GCD(N, x) != 1
+			// If GCD(N, x) != 1, then N has a divisor > 1, and does not need to be tested further.
 			if jNx == 0 {
-				return 0, errors.New("R has a known factor, it does not need to be tested further.")
+				return 0, errors.New("N has a known factor, it does not need to be tested further.")
 			}
 
-			// Store the computed Jacobi(R, x) in the cache for potential later use
+			// Store the computed Jacobi(N, x) in the cache for potential later use
 			if cache != nil {
 				cache[x] = jNx
 			}
 		}
 
-		// The last thing that we have to do is to compute the value of (-1)^((R-1)/2*(x-1)/2).
+		// The last thing that we have to do is to compute the value of (-1)^((N-1)/2*(x-1)/2).
 		//
 		// Now, since (h*2^(n-1)-1) is always odd, the result depends on whether (x-1)/2 is even or odd.
 		//
@@ -358,7 +361,7 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 		//		(x mod 4 == 3) -> (x-1)/2 is odd -> (-1)^((h*2^(n-1)-1)*(x-1)/2) = -1
 		if (x % 4) == 3 { sign = !sign }
 
-		// Jacobi(x, R) = Jacobi(R, x) * sign
+		// Jacobi(x, N) = Jacobi(N, x) * sign
 		if sign == true {
 			return jNx, nil
 		} else {
@@ -367,18 +370,24 @@ func efficientJacobi(x, h, n int64, cache map[int64]int) (int, error) {
 	}
 }
 
-func ldebug(a, b string)  {
-
-}
-
-func screenEasyPrimes(R *RieselNumber) int {
+// screenEasyPrimes checks whether R is a small known prime < 257 or whether it
+// has a small known prime < 257 as a factor.
+//
+// It returns:
+//		+1 if R is a prime < 257
+//		-1 if R has a prime < 257 as a factor
+//		 0 otherwise
+func screenEasyPrimes(R *RieselNumber) (int, error) {
 
 	// Check preconditions
+	if R == nil {
+		return 0, errors.New("Received R == nil")
+	}
 
 	// Catch the degenerate case of h*2^n-1 == 1
 	if R.h == 1 && R.n == 1 {
-		ldebug("lucas", "not prime: h == 1 && n == 1")
-		return -1	// 1*2^1-1 == 1 is not prime
+		log.Debugf("N = %v = 1 is not prime", R)
+		return -1, nil	// 1*2^1-1 == 1 is not prime
 	}
 
 	// Catch the degenerate case of n == 2
@@ -386,12 +395,12 @@ func screenEasyPrimes(R *RieselNumber) int {
 	// n == 2 and 0 < h < 2^n  ->  0 < h < 4
 	// Since h is odd  ->  h == 1 or h == 3
 	if R.h == 1 && R.n == 2 {
-		ldebug("lucas", "prime: h == 1 && n == 2")
-		return +1		// 1*2^2-1 == 3 is prime
+		log.Debugf("N = %v = 3 is prime", R)
+		return +1, nil		// 1*2^2-1 == 3 is prime
 	}
 	if R.h == 3 && R.n == 2 {
-		ldebug("lucas", "prime: h == 3 && n == 2")
-		return +1		// 3*2^2-1 == 11 is prime
+		log.Debugf("N = %v = 11 is prime", R)
+		return +1, nil		// 3*2^2-1 == 11 is prime
 	}
 
 	// Catch small primes < 257
@@ -400,43 +409,43 @@ func screenEasyPrimes(R *RieselNumber) int {
 	// violate the checks above.
 	if R.h == 1 {
 		if R.n == 3 || R.n == 5 || R.n == 7 {
-			ldebug("lucas", "prime: 3, 7, 31, 127 are prime")
-			return +1		// 3, 7, 31, 127 are prime
+			log.Debugf("N = %v is prime", R)
+			return +1, nil		// 3, 7, 31, 127 are prime
 		}
 	}
 	if R.h == 3 {
 		if R.n == 2 || R.n == 3 || R.n == 4 || R.n == 6 {
-			ldebug("lucas", "prime: 11, 23, 47, 191 are prime")
-			return +1		// 11, 23, 47, 191 are prime
+			log.Debugf("N = %v is prime", R)
+			return +1, nil		// 11, 23, 47, 191 are prime
 		}
 	}
 	if R.h == 5 && R.n == 4 {
-		ldebug("lucas", "prime: 79 is prime");
-		return +1 	// 79 is prime
+		log.Debugf("N = %v = 79 is prime", R)
+		return +1, nil 	// 79 is prime
 	}
 	if R.h == 7 && R.n == 5 {
-		ldebug("lucas", "prime: 223 is prime");
-		return +1		// 223 is prime
+		log.Debugf("N = %v = 223 is prime", R)
+		return +1, nil		// 223 is prime
 	}
 	if R.h == 15 && R.n == 4 {
-		ldebug("lucas", "prime: 239 is prime");
-		return +1		// 239 is prime
+		log.Debugf("N = %v = 239 is prime", R)
+		return +1, nil		// 239 is prime
 	}
 
 	// Check for 3 <= prime factors < 29
 	// The product of primes up to 28, excluding 2 is:
 	// 		111546435
-	if new(big.Int).GCD(nil, nil, R.N, new(big.Int).SetInt64(111546435)).Cmp(one) != 1 {
-		ldebug("lucas","not-prime: 3<=prime<29 divides h*2^n-1");
-		return -1	// a small 3 <= prime < 29 divides N
+	if new(big.Int).GCD(nil, nil, R.N, new(big.Int).SetInt64(111546435)).Cmp(one) != 0 {
+		log.Debugf("N = %v is not prime: a small 3 <= prime < 29 divides it", R)
+		return -1, nil	// a small 3 <= prime < 29 divides N
 	}
 
 	// Check for 29 <= prime factors < 47
 	// The product of primes from 28 to 46 is:
 	//		5864229
-	if new(big.Int).GCD(nil, nil, R.N, new(big.Int).SetInt64(58642669)).Cmp(one) != 1 {
-		ldebug("lucas","not-prime: 29<=prime<47 divides h*2^n-1");
-		return -1 	// a small 29 <= prime < 47 divides N
+	if new(big.Int).GCD(nil, nil, R.N, new(big.Int).SetInt64(58642669)).Cmp(one) != 0 {
+		log.Debugf("N = %v is not prime: a small 29 <= prime < 47 divides it", R)
+		return -1, nil 	// a small 29 <= prime < 47 divides N
 	}
 
 	// Check for 47 <= prime factors < 257, if N is large
@@ -448,14 +457,14 @@ func screenEasyPrimes(R *RieselNumber) int {
 			10)
 
 		if success != true {
-			ldebug("SEEMS LIKE SOMETHING WENT BAD", "");
-		}
+			log.Warning("Was not able to initialize pprod256, the big.Int product of " +
+				"primes between 47 and 256. Skipping this pre-check.")
 
-		if new(big.Int).GCD(nil, nil, R.N, pprod256).Cmp(one) != 1 {
-			ldebug("lucas","not-prime: 47<=prime<257 divides h*2^n-1");
-			return -1	// a small 47 <= prime < 257 divides N
+		} else if new(big.Int).GCD(nil, nil, R.N, pprod256).Cmp(one) != 0 {
+			log.Debugf("N = %v is not prime: a small 47 <= prime < 257 divides it", R)
+			return -1, nil	// a small 47 <= prime < 257 divides N
 		}
 	}
 
-	return 0
+	return 0, nil
 }
