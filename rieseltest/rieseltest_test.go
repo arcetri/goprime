@@ -9,10 +9,52 @@ import (
 	big "github.com/ricpacca/gmp"
 )
 
+func TestGenV1SimpleCase(t *testing.T) {
+
+	// Test for all the known Riesel primes with h not multiple of 3 if generating V(1)
+	// works as expected (returning 4).
+	if file, err := os.Open("testfiles/v1_with_h_NOT_multiple_of_3.out"); err == nil {
+
+		// create a new scanner and read the file line by line
+		s := bufio.NewScanner(file)
+
+		for s.Scan() {
+			line := s.Text()
+			words := strings.Split(line, " ")
+			h, err := strconv.Atoi(words[0])
+			if err != nil {
+				panic(err)
+			}
+
+			n, err := strconv.Atoi(words[1])
+			if err != nil {
+				panic(err)
+			}
+
+			R, _ := NewRieselNumber(int64(h), int64(n))
+			actual, _ := GenV1(R, RODSETH)
+
+			if actual != int64(4) {
+				t.Errorf("genV1Riesel(%v, %v) == %v, but we expected 4", h, n, actual)
+			}
+		}
+
+		// check for errors
+		if err = s.Err(); err != nil {
+			panic(err)
+		}
+
+		file.Close()
+
+	} else {
+		panic(err)
+	}
+}
+
 func TestGenV1Rodseth(t *testing.T) {
 
-	// Test for all the known Riesel primes if generating V(1) works as expected
-	// We use the calc software [Ref5] to generate the test cases.
+	// Test for all the known Riesel primes with h multiple of 3 if generating V(1) works
+	// as expected. We use the calc software [Ref5] to generate the test cases.
 	if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
 
 		// create a new scanner and read the file line by line
@@ -56,8 +98,8 @@ func TestGenV1Rodseth(t *testing.T) {
 
 func TestGenV1Riesel(t *testing.T) {
 
-	// Test for all the known Riesel primes if generating V(1) works as expected
-	// We use the calc software [Ref5] to generate the test cases.
+	// Test for all the known Riesel primes with h multiple of 3 if generating V(1) works
+	// as expected. We use the calc software [Ref5] to generate the test cases.
 	if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
 
 		// create a new scanner and read the file line by line
@@ -101,7 +143,7 @@ func TestGenV1Riesel(t *testing.T) {
 
 func TestGenU2(t *testing.T) {
 
-	// Test for some known Riesel primes if generating U(2) works as expected
+	// Test for some known Riesel primes if generating U(2) works as expected.
 	// We use the calc software [Ref5] to generate the test cases.
 	k, _ := new(big.Int).SetString("11795713261792426815798380820887418752674276338130891767997058623856897193630" +
 		"44019617626496399595785831029617354807397622866359370536685450127496104007738667927950678092481408087840326" +
@@ -174,7 +216,7 @@ func TestGenUNSingle(t *testing.T) {
 
 func BenchmarkGenV1Riesel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -210,7 +252,7 @@ func BenchmarkGenV1Riesel(b *testing.B) {
 
 func BenchmarkGenV1Rodseth(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -246,7 +288,7 @@ func BenchmarkGenV1Rodseth(b *testing.B) {
 
 func BenchmarkGenV1Penne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -282,7 +324,7 @@ func BenchmarkGenV1Penne(b *testing.B) {
 
 func BenchmarkGenU2Riesel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -325,7 +367,7 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 
 func BenchmarkGenU2Rodseth(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -368,7 +410,7 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 
 func BenchmarkGenU2Penne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -394,6 +436,82 @@ func BenchmarkGenU2Penne(b *testing.B) {
 				}
 
 				GenU2(N, v1)
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenU2WithV13(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("testfiles/v1_with_h_NOT_multiple_of_3_and_v1_3_large.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				N, _ := NewRieselNumber(int64(h), int64(n))
+
+				GenU2(N, 3)
+			}
+
+			// check for errors
+			if err = s.Err(); err != nil {
+				panic(err)
+			}
+
+			file.Close()
+
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkGenU2WithV14(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if file, err := os.Open("testfiles/v1_with_h_NOT_multiple_of_3_and_v1_3_large.out"); err == nil {
+
+			// create a new scanner and read the file line by line
+			s := bufio.NewScanner(file)
+
+			for s.Scan() {
+				line := s.Text()
+				words := strings.Split(line, " ")
+				h, err := strconv.Atoi(words[0])
+				if err != nil {
+					panic(err)
+				}
+
+				n, err := strconv.Atoi(words[1])
+				if err != nil {
+					panic(err)
+				}
+
+				N, _ := NewRieselNumber(int64(h), int64(n))
+
+				GenU2(N, 4)
 			}
 
 			// check for errors

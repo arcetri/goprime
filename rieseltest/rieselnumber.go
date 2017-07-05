@@ -19,7 +19,7 @@ type RieselNumber struct {
 
 // NewRieselNumber constructs a new RieselNumber instance with the given h and n
 //
-// This function assumes:
+// This function requires:
 //		a) h >= 1
 //		b) n >= 2
 //

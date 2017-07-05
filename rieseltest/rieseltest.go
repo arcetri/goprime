@@ -10,12 +10,11 @@ import (
 
 	// Mathematical library implementing the necessary methods
 	big "github.com/ricpacca/gmp"
-	"github.com/op/go-logging"
 )
 
 func init() {
 	// By default, disable the loggers
-	ConfigureLogger(false, 0,true, logging.DEBUG)
+	ConfigureLogger(false, 0,false, 0)
 }
 
 // IsPrime performs a full Lucas-Lehmer-Riesel primality test on the
@@ -297,7 +296,7 @@ func genV1Rodseth(h, n int64) (int64, error) {
 // genV1Riesel computes a valid V(1) value for the given Riesel candidate in the case
 // where h is a multiple of 3.
 //
-// This function assumes:
+// This function requires:
 //		a) n >= 2
 //		b) h >= 1
 //		c) h mod 2 == 1
@@ -466,7 +465,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 		// alpha = epsilon, and we need to verify a further condition instead.
 		//
 		// Read TODO paper for a better explanation of this
-		if X, err := sqrtOrZero(v - 2); X != 0 && err == nil {
+		if issquare, err := isPerfectSquare(v - 2); issquare && err == nil {
 			log.Debugf("%v-2 is a perfect square -> alpha = epsilon^2 -> %v is a valid V(1) candidate", v, v)
 			return v, nil
 
@@ -626,7 +625,7 @@ func genV1Riesel(h, n int64) (int64, error) {
 
 // genV1Penne computes a valid V(1) value for the given Riesel candidate.
 //
-// This function assumes:
+// This function requires:
 //		a) n >= 2
 //		b) h >= 1
 //		c) h mod 2 == 1
@@ -793,7 +792,7 @@ func genV1Penne(h, n int64) (int64, error) {
 // GenU2 computes U(2) for the given Riesel candidate, where:
 // 		U(2) = V(h)
 //
-// This function assumes:
+// This function requires:
 //		a) n >= 2
 //		b) h >= 1
 //		c) h mod 2 == 1
@@ -936,7 +935,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 
 // GenUN computes U(n) for the given Riesel candidate.
 //
-// This function assumes:
+// This function requires:
 //		a) n >= 2
 //		b) h >= 1
 //		c) h mod 2 == 1
@@ -962,8 +961,7 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		return nil, errors.New(fmt.Sprintf("Expected u > 0, but received u = %v", u))
 	}
 
-	logPoint := int64((R.n - 2) / 10)
-
+	// TODO add checkpoints and correctness checks here
 	for i := int64(3); i <= R.n; i++ {
 
 		// u = (u^2 - 2) mod N
@@ -972,7 +970,6 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		u = rieselMod(u, R)
 
 		log.Debugf("U(%v) mod N = %v", i, u)
-		if i % logPoint == 0 { log.Infof("Current GenUN progress: ~%.0f%%", float64(100 * i) / float64(R.n - 2)) }
 	}
 
 	return u, nil

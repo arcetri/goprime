@@ -133,25 +133,23 @@ func reduce(x int64) (b int64, d int64) {
 	return b, d
 }
 
-// sqrtOrZero returns the square root of n if n is a perfect square, or zero otherwise.
+// isPerfectSquare returns true if n is a perfect square.
 //
 // This function requires:
 //		a) n > 0
-//
-// NOTE: This function has been copied from the LLR software's "issquare" function [Ref3].
-func sqrtOrZero(n int64) (int64, error) {
+func isPerfectSquare(n int64) (bool, error) {
 
 	// Check preconditions
 	if n <= 0 {
-		return 0, errors.New(fmt.Sprintf("Expected n > 0, but received n = %v", n))
+		return false, errors.New(fmt.Sprintf("Expected n > 0, but received n = %v", n))
 	}
 
-	s := int64(lround(math.Floor(math.Sqrt(float64(n)))))
+	s := lround(math.Sqrt(float64(n)))
 
 	if s*s == n {
-		return s, nil
+		return true, nil
 	} else {
-		return 0, nil
+		return false, nil
 	}
 }
 
@@ -174,7 +172,7 @@ func modExp(base, exponent, modulus int64) (int64, error) {
 		return 0, errors.New(fmt.Sprintf("Expected exponent >= 0, but received exponent = %v", exponent))
 	}
 
-	if modulus == 1 { return 0, nil }
+	if base == 0 || modulus == 1 { return 0, nil }
 	result := int64(1)
 	base = base % modulus
 
@@ -205,7 +203,7 @@ func rieselMod(a *big.Int, R *RieselNumber) *big.Int {
 
 		for ret.Cmp(R.N) == 1 {
 			if int64(ret.BitLen()) <= R.n {
-				break
+				break	// QUESTION: is this code ever reached?
 			}
 
 			j := new(big.Int)
@@ -225,10 +223,7 @@ func rieselMod(a *big.Int, R *RieselNumber) *big.Int {
 			}
 		}
 
-		if ret.Sign() == -1 {
-			ret.Add(ret, R.N)
-			return ret
-		} else if ret.Cmp(R.N) == 0 {
+		if ret.Cmp(R.N) == 0 {
 			return zero
 		} else {
 			return ret
