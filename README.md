@@ -24,7 +24,7 @@ $ go get github.com/arcetri/GoPrime
 $ goprime 391581 216193
 ```
 
-If you have errors with these commands, check that you have GoLang installed and configured with:
+If you have errors with these commands, check that you have GoLang (at least v6) installed and configured with:
     
 ```sh
 # Set the $GOPATH and add the $GOPATH/bin to the PATH environment variable if not already done.
@@ -38,10 +38,18 @@ $ export PATH=$PATH:$GOPATH/bin
 
 ## Contribute
 
+Please feel invited to contribute by creating a pull request to submit the code you would like to be included.
+
+You can also contact us using the following email address: *goprime-contributors (at) external (dot) cisco (dot) com*.
+If you send us an email, please include the phrase "__goprime author question__" somewhere in the subject line or 
+your email may be rejected.
+
+
+## Contribute
+
 Please feel invited to contribute by creating a pull request to submit the code or bug fixes you would like to be 
 included in GoPrime.
 
 ## License
 
-This project is distributed under the terms of the GNU General Public License v3.0. See file "LICENSE" for further 
-reference.
+This project is distributed under the terms of the Apache License v2.0. See file "LICENSE" for further reference.

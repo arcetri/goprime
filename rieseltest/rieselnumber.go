@@ -1,9 +1,12 @@
 package rieseltest
 
 import (
-	big "github.com/ricpacca/gmp"
 	"fmt"
 	"errors"
+
+	// big "math/big"
+	big "github.com/ricpacca/gmp"
+	// big "github.com/ricpacca/go.flint/fmpz"
 )
 
 // A RieselNumber represents a number in the form h*2^n-1

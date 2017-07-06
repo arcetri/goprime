@@ -2,7 +2,10 @@ package rieseltest
 
 import (
 	"testing"
+
+	// big "math/big"
 	big "github.com/ricpacca/gmp"
+	// big "github.com/ricpacca/go.flint/fmpz"
 )
 
 func TestLowerNonZeroBit(t *testing.T) {

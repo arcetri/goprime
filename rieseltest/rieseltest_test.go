@@ -6,7 +6,10 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
+
+	// big "math/big"
 	big "github.com/ricpacca/gmp"
+	// big "github.com/ricpacca/go.flint/fmpz"
 )
 
 func TestGenV1SimpleCase(t *testing.T) {
