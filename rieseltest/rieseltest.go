@@ -1,3 +1,5 @@
+// +build linux
+
 // Package rieseltest implements the functions to perform a full
 // primality test on Riesel numbers of the form R = h * 2^n - 1.
 
@@ -7,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"errors"
+	"syscall"
 
 	// Mathematical library implementing the necessary methods
 	// big "math/big"
@@ -970,6 +973,9 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		return nil, errors.New(fmt.Sprintf("Expected u > 0, but received u = %v", u))
 	}
 
+	begin := new(syscall.Tms)
+	syscall.Times(begin)
+
 	// TODO add checkpoints and correctness checks here
 	for i := int64(3); i <= R.n; i++ {
 
@@ -978,7 +984,15 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		u.Sub(u, two)
 		rieselMod(u, R)
 
-		if loggingEnabled { log.Debugf("U(%v) mod N = %v", i, getLastDigits(u)) }
+		if i % 1000 == 0 {
+
+			current := new(syscall.Tms)
+			syscall.Times(current)
+
+			s := u.String()
+			log.Infof("Reached U(%v). Last 8 digits = %v. Utime = %.2f. Stime = %.2f.", i, s[len(s)-8:],
+				float64(current.Utime - begin.Utime) / 100.0, float64(current.Stime - begin.Stime) / 100.0)
+		}
 	}
 
 	return u, nil
