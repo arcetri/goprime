@@ -195,41 +195,35 @@ func modExp(base, exponent, modulus int64) (int64, error) {
 // way using the shift and add method.
 //
 // Read [Ref4] for more information on this method.
-func rieselMod(a *big.Int, R *RieselNumber) *big.Int {
-	ret := new(big.Int).Set(a)
-
+func rieselMod(a *big.Int, R *RieselNumber) {
 	if R.N.Cmp(maxInt64) == -1 {
-		ret.Mod(ret, R.N)
-		return ret
+		a.Mod(a, R.N)
 
 	} else {
-
-		for ret.Cmp(R.N) == 1 {
-			if int64(ret.BitLen()) <= R.n {
+		for a.Cmp(R.N) == 1 {
+			if int64(a.BitLen()) <= R.n {
 				break	// QUESTION: is this code ever reached?
 			}
 
 			j := new(big.Int)
-			j.Rsh(ret, uint(R.n))
+			j.Rsh(a, uint(R.n))
 
 			k := new(big.Int)
-			k.Sub(ret, k.Lsh(j, uint(R.n)))
+			k.Sub(a, k.Lsh(j, uint(R.n)))
 
 			if R.h == 1 {
-				ret.Add(k, j)
+				a.Add(k, j)
 			} else {
 				tquo := new(big.Int)
 				tmod := new(big.Int)
 
 				tquo.DivMod(j, R.hBig, tmod)
-				ret.Add(ret.Add(tmod.Lsh(tmod, uint(R.n)), k), tquo)
+				a.Add(a.Add(tmod.Lsh(tmod, uint(R.n)), k), tquo)
 			}
 		}
 
-		if ret.Cmp(R.N) == 0 {
-			return zero
-		} else {
-			return ret
+		if a.Cmp(R.N) == 0 {
+			a.SetInt64(0)
 		}
 	}
 }

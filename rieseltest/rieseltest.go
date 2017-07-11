@@ -838,7 +838,8 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 		tmp := new(big.Int)
 		tmp.Mul(vX, vXPlus1)
 		tmp.Sub(tmp, v1_big)
-		c <- rieselMod(tmp, R)
+		rieselMod(tmp, R)
+		c <- tmp
 	}
 
 	// vTwoX computes: V(2*x) = V(x)^2 - 2
@@ -847,7 +848,8 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 		tmp := new(big.Int)
 		tmp.Mul(vX, vX)
 		tmp.Sub(tmp, two)
-		c <- rieselMod(tmp, R)
+		rieselMod(tmp, R)
+		c <- tmp
 	}
 
 	// r represents V(x) at every iteration,
@@ -858,7 +860,8 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 
 	// If h == 1, we simply return: V(1) mod N
 	if R.h == 1 {
-		return rieselMod(r, R), nil
+		rieselMod(r, R)
+		return r, nil
 	}
 
 	// s represents V(x+1) at every iteration,
@@ -927,7 +930,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 	// 		r = V(2*x+1)
 	r.Mul(r, s)
 	r.Sub(r, v1_big)
-	r = rieselMod(r, R)
+	rieselMod(r, R)
 
 	log.Debugf("r = %v", r)
 
@@ -969,7 +972,7 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		// u = (u^2 - 2) mod N
 		u.Mul(u, u)
 		u.Sub(u, two)
-		u = rieselMod(u, R)
+		rieselMod(u, R)
 
 		log.Debugf("U(%v) mod N = %v", i, u)
 	}
