@@ -17,11 +17,11 @@
 long int debug;
 char *program;
 static const char *usage = "[-v] h n\n"
-"\n"
-"\t-v\tverbose mode\n"
-"\n"
-"\th\tpower of 2 multuplier (as in h*2^n-1) must be > 0 and < 2^n\n"
-"\tn\tpower of 2 (as in h*2^n-1) must be > 0\n";
+		"\n"
+		"\t-v\tverbose mode\n"
+		"\n"
+		"\th\tpower of 2 multiplier (as in h*2^n-1)\n"
+		"\tn\tpower of 2 (as in h*2^n-1)\n";
 
 void dbg(int level, char const *message)
 {
@@ -116,8 +116,19 @@ bool isPrime(struct RieselNumber *R)
 	fmpz_t u;
 	fmpz_init(u);
 	GenU2(u, R, v1);
-	asprintf(&dbgMessage, "Generated U(2) = V(h)");
-	dbg(1, dbgMessage);
+	if (debug == 1) {
+		char *str, *message;
+		fmpz_t print;
+		fmpz_init(print);
+		fmpz_mod_ui(print, u, 100000000);
+		str = malloc(sizeof(char) * fmpz_sizeinbase(print, 10));
+		fmpz_get_str(str, 10, print);
+		fmpz_clear(print);
+		asprintf(&message, "Generated U(2) = V(h). Last 8 digits = %s.", str);
+		dbg(1, message);
+		free(str);
+		free(message);
+	}
 
 	// Step 3: Use the generated U(2) to generate U(n)
 	GenUN(R, u);
@@ -323,13 +334,10 @@ void GenU2(fmpz_t r, struct RieselNumber *R, uint64_t v1)
 		return;
 	}
 
-	struct RieselModCache *C = malloc(sizeof(struct RieselModCache));
-	initializeRieselModCache(C);
-
 	fmpz_set_ui(r, v1);
 
 	if (R->h == 1) {
-		rieselMod(r, R, C);
+		fmpz_mod(r, r, R->N);
 		return;
 	}
 
@@ -353,11 +361,11 @@ void GenU2(fmpz_t r, struct RieselNumber *R, uint64_t v1)
 			// These two operations are done in parallel
 			fmpz_mul(r, r, s);
 			fmpz_sub_ui(r, r, v1);
-			rieselMod(r, R, C);
+			fmpz_mod(r, r, R->N);
 
 			fmpz_mul(s, s, s);
 			fmpz_sub_ui(s, s, 2);
-			rieselMod(s, R, C);
+			fmpz_mod(s, s, R->N);
 
 		} else {
 
@@ -368,11 +376,11 @@ void GenU2(fmpz_t r, struct RieselNumber *R, uint64_t v1)
 			// These two operations are done in parallel
 			fmpz_mul(s, s, r);
 			fmpz_sub_ui(s, s, v1);
-			rieselMod(s, R, C);
+			fmpz_mod(s, s, R->N);
 
 			fmpz_mul(r, r, r);
 			fmpz_sub_ui(r, r, 2);
-			rieselMod(r, R, C);
+			fmpz_mod(r, r, R->N);
 		}
 	}
 
@@ -380,40 +388,9 @@ void GenU2(fmpz_t r, struct RieselNumber *R, uint64_t v1)
 	// 		r = V(2*x+1)
 	fmpz_mul(r, r, s);
 	fmpz_sub_ui(r, r, v1);
-	rieselMod(r, R, C);
+	fmpz_mod(r, r, R->N);
 
 	fmpz_clear(s);
-	clearRieselModCache(C);
-}
-
-void rieselMod(fmpz_t a, struct RieselNumber *R, struct RieselModCache *C)
-{
-	int cmp = (fmpz_cmp(a, R->N));
-
-	while (cmp == 1) {
-		if (fmpz_bits(a) <= R->n) { break; }
-
-		fmpz_fdiv_q_2exp(C->j, a, R->n);
-
-		fmpz_mul_2exp(C->k, C->j, R->n);
-		fmpz_sub(C->k, a, C->k);
-
-		if (R->h == 1) {
-			fmpz_add(a, C->k, C->j);
-		} else {
-			fmpz_tdiv_q_ui(C->tquo, C->j, R->h);
-
-			fmpz_mod_ui(C->tmod, C->j, R->h);
-			fmpz_mul_2exp(C->tmod, C->tmod, R->n);
-
-			fmpz_add(a, C->tmod, C->k);
-			fmpz_add(a, a, C->tquo);
-		}
-
-		cmp = (fmpz_cmp(a, R->N));
-	}
-
-	if (cmp == 0) { fmpz_zero(a); }
 }
 
 void GenUN(struct RieselNumber *R, fmpz_t u)
@@ -452,6 +429,9 @@ void GenUN(struct RieselNumber *R, fmpz_t u)
 	fmpz_t j_div_h;
 	fmpz_t j_mod_h;
 	fmpz_t j_plus_k;
+
+	fmpz_t print;
+	fmpz_init(print);
 
 	fmpz_init(u_squared);
 	fmpz_init(j);
@@ -493,15 +473,17 @@ void GenUN(struct RieselNumber *R, fmpz_t u)
 
 		if (cmp == 0) { fmpz_zero(u); }
 
-		if (i % 3000 == 0) {
+		if (debug == 1 && i % 1000 == 0) {
 			char *str, *dbgMessage;
 
-			str = malloc(sizeof(char) * fmpz_sizeinbase(u, 10));
-			fmpz_get_str(str, 10, u);
+			fmpz_mod_ui(print, u, 100000000);
+
+			str = malloc(sizeof(char) * fmpz_sizeinbase(print, 10));
+			fmpz_get_str(str, 10, print);
 			times(&current);
 
 			asprintf(&dbgMessage, "Reached U(%ld). Last 8 digits = %s. Utime = %.2f. Stime = %.2f.",
-				 i, &str[strlen(str) - 8], (float) (current.tms_utime - begin.tms_utime) / 100.0,
+				 i, str, (float) (current.tms_utime - begin.tms_utime) / 100.0,
 				 (float) (current.tms_stime - begin.tms_stime) / 100.0);
 
 
@@ -511,6 +493,8 @@ void GenUN(struct RieselNumber *R, fmpz_t u)
 			free(dbgMessage);
 		}
 	}
+
+	fmpz_clear(print);
 
 	fmpz_clear(u_squared);
 	fmpz_clear(j);
