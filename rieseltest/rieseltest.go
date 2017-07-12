@@ -985,7 +985,6 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		rieselMod(u, R)
 
 		if i % 1000 == 0 {
-
 			current := new(syscall.Tms)
 			syscall.Times(current)
 

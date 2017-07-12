@@ -219,7 +219,12 @@ func rieselMod(a *big.Int, R *RieselNumber) {
 
 				tquo.DivMod(j, R.hBig, tmod)
 				a.Add(a.Add(tmod.Lsh(tmod, uint(R.n)), k), tquo)
+				tquo.Clear()
+				tmod.Clear()
 			}
+
+			j.Clear()
+			k.Clear()
 		}
 
 		if a.Cmp(R.N) == 0 {
