@@ -16,6 +16,8 @@ was written.
 
 ## Usage
 
+### Goprime
+
 ```sh
 # Download and install GoPrime
 $ go get github.com/arcetri/GoPrime
@@ -32,23 +34,30 @@ $ export GOPATH=$HOME/go
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
+### Goprime-c
+
+```sh
+# Download and install GoPrime
+$ go get github.com/arcetri/GoPrime
+$ cd $GOPATH/src/github.com/arcetri/GoPrime/c
+$ make install
+
+# Run GoPrime with any h and n
+$ goprime-c 391581 216193
+```
+
 ## Features to be added in the future
 - Correctness checks for the computation of terms of the Lucas sequence U(x)
 - Checkpoints for the computation of terms of the Lucas sequence U(x)
 
 ## Contribute
 
-Please feel invited to contribute by creating a pull request to submit the code you would like to be included.
+Please feel invited to contribute by creating a pull request to submit the code or bug fixes you would like to be 
+included in GoPrime.
 
 You can also contact us using the following email address: *goprime-contributors (at) external (dot) cisco (dot) com*.
 If you send us an email, please include the phrase "__goprime author question__" somewhere in the subject line or 
 your email may be rejected.
-
-
-## Contribute
-
-Please feel invited to contribute by creating a pull request to submit the code or bug fixes you would like to be 
-included in GoPrime.
 
 ## License
 
