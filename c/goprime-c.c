@@ -484,7 +484,7 @@ void GenUN(struct RieselNumber *R, fmpz_t u)
 			fmpz_get_str(str, 10, print);
 			times(&current);
 
-			asprintf(&dbgMessage, "Reached U(%llu). Last 8 digits = %s. Utime = %.2f. Stime = %.2f.",
+			asprintf(&dbgMessage, "Reached U(%" PRIu64 "). Last 8 digits = %s. Utime = %.2f. Stime = %.2f.",
 				 i, str, (float) (current.tms_utime - begin.tms_utime) / 100.0,
 				 (float) (current.tms_stime - begin.tms_stime) / 100.0);
 

@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	// big "math/big"
-	big "github.com/ricpacca/gmp"
-	// big "github.com/ricpacca/go.flint/fmpz"
+	big "github.com/arcetri/gmp"
+	// big "github.com/arcetri/go.flint/fmpz"
 )
 
 func TestLowerNonZeroBit(t *testing.T) {

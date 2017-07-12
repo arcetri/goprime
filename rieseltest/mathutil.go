@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	// big "math/big"
-	big "github.com/ricpacca/gmp"
-	// big "github.com/ricpacca/go.flint/fmpz"
+	big "github.com/arcetri/gmp"
+	// big "github.com/arcetri/go.flint/fmpz"
 )
 
 var zero = new(big.Int).SetInt64(0)
