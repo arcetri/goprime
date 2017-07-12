@@ -64,12 +64,12 @@ func IsPrime(R *RieselNumber) (bool, error) {
 	// Step 2: Use the generated V(1) to generate U(2) = V(h)
 	u2, err := GenU2(R, v1)
 	if err != nil { return false, err }
-	log.Infof("Generated U(2) = V(h)")
+	if loggingEnabled { log.Infof("Generated U(2) = V(h). Last 8 digits: %v", getLastDigits(u2)) }
 
 	// Step 3: Use the generated U(2) to generate U(n)
 	uN, err := GenUN(R, u2)
 	if err != nil { return false, err }
-	log.Infof("Generated U(n)")
+	if loggingEnabled { log.Infof("Generated U(n). Last 8 digits: %v", getLastDigits(uN)) }
 
 	// Step 4: Check if U(n) == 0 (mod N)
 	if uN.Cmp(zero) == 0 {
@@ -903,8 +903,10 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 			r = <- c_r
 			s = <- c_s
 
-			log.Debugf("r = %v", r)
-			log.Debugf("s = %v", s)
+			if loggingEnabled {
+				log.Debugf("r = %v", getLastDigits(r))
+				log.Debugf("s = %v", getLastDigits(s))
+			}
 
 		} else {
 
@@ -921,8 +923,10 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 			s = <- c_s
 			r = <- c_r
 
-			log.Debugf("r_ = %v", r)
-			log.Debugf("s_ = %v", s)
+			if loggingEnabled {
+				log.Debugf("_r = %v", getLastDigits(r))
+				log.Debugf("_s = %v", getLastDigits(s))
+			}
 		}
 	}
 
@@ -932,7 +936,7 @@ func GenU2(R *RieselNumber, v1 int64) (*big.Int, error) {
 	r.Sub(r, v1_big)
 	rieselMod(r, R)
 
-	log.Debugf("r = %v", r)
+	if loggingEnabled { log.Debugf(".r = %v", getLastDigits(r)) }
 
 	// At this point r = V(h)
 	return r, nil
@@ -974,7 +978,7 @@ func GenUN(R *RieselNumber, u *big.Int) (*big.Int, error) {
 		u.Sub(u, two)
 		rieselMod(u, R)
 
-		log.Debugf("U(%v) mod N = %v", i, u)
+		if loggingEnabled { log.Debugf("U(%v) mod N = %v", i, getLastDigits(u)) }
 	}
 
 	return u, nil

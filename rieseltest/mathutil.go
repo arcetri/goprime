@@ -460,3 +460,10 @@ func screenEasyPrimes(R *RieselNumber) (int, error) {
 
 	return 0, nil
 }
+
+var mod = new(big.Int).SetInt64(100000000)
+func getLastDigits(a *big.Int) string {
+	tmp := new(big.Int)
+	tmp.Mod(a, mod)
+	return tmp.String()
+}

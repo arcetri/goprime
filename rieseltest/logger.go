@@ -10,6 +10,7 @@ import (
 
 // Initialize logger to be used in this package
 var log = logging.MustGetLogger("rieseltest")
+var loggingEnabled = false
 
 // ConfigureLogger allows to enable file and terminal outputs for the log messages
 // The available logging levels are:
@@ -21,10 +22,11 @@ var log = logging.MustGetLogger("rieseltest")
 func ConfigureLogger(file bool, fileLevel logging.Level, terminal bool, terminalLevel logging.Level) {
 	var backendList []logging.Backend
 
+	if terminal || file { loggingEnabled = true }
+
 	if terminal {
 		// Set a custom formatting for the logs sent to the terminal
-		terminalFormat := logging.MustStringFormatter("%{color}[%{shortfunc}]%{color:reset} " +
-			"%{time:15:04:05.000} %{color}%{level:.4s}%{color:reset} -> %{message}")
+		terminalFormat := logging.MustStringFormatter("[%{shortfunc}] %{time:15:04:05.000} -> %{message}")
 		terminalBackend := logging.NewLogBackend(os.Stdout, "", 0)
 		terminalBackendFormatted := logging.NewBackendFormatter(terminalBackend, terminalFormat)
 
@@ -37,8 +39,7 @@ func ConfigureLogger(file bool, fileLevel logging.Level, terminal bool, terminal
 
 	if file {
 		// Set a custom formatting for the logs sent to files
-		fileFormat := logging.MustStringFormatter("[%{pid} - %{shortfunc}] %{time:15:04:05.000} " +
-			"%{level:.4s} -> %{message}")
+		fileFormat := logging.MustStringFormatter("[%{pid} - %{shortfunc}] %{time:15:04:05.000} -> %{message}")
 
 		// Let the file logs be saved on a rolling basis
 		fileBackend := logging.NewLogBackend(&lumberjack.Logger{
