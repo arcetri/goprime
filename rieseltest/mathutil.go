@@ -5,8 +5,8 @@ import (
 	"math"
 	"fmt"
 
-	// big "math/big"
-	big "github.com/arcetri/gmp"
+	big "math/big"
+	// big "github.com/arcetri/gmp"
 	// big "github.com/arcetri/go.flint/fmpz"
 )
 

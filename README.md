@@ -73,8 +73,8 @@ $ export PATH=$PATH:$GOPATH/bin
 
 ### Goprime-c
 
-GoPrime-c is a C translation of the GoPrime software. In our tests, it appeared that GoPrime-c is about 7% faster 
-than the corresponding GoLang code of GoPrime. 
+GoPrime-c is a C translation of the GoPrime software. In our tests, it appeared that GoPrime-c is about 1.5% faster 
+than the corresponding GoLang code of GoPrime (when both are set to use the FLINT lib). 
 
 ```sh
 # Download and install GoPrime
