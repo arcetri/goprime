@@ -218,11 +218,11 @@ func TestRieselMod(t *testing.T) {
 	for _, c := range testCases {
 		a, _ := new(big.Int).SetString(c.a, 10)
 		R, _ := NewRieselNumber(c.h, c.n)
-		actual := rieselMod(a, R)
+		rieselMod(a, R)
 		expected, _ := new(big.Int).SetString(c.expected, 10)
 
-		if actual.Cmp(expected) != 0 {
-			t.Errorf("rieselMod(%v, %v) = %v, but we expected %v", a, R, actual, expected)
+		if a.Cmp(expected) != 0 {
+			t.Errorf("rieselMod(%v, %v) = %v, but we expected %v", c.a, R, a, expected)
 		}
 	}
 }
