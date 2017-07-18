@@ -347,7 +347,7 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 
 				N, _ := NewRieselNumber(int64(h), int64(n))
 
-				v1, err := GenV1(N, RIESEL)
+				v1, err := genV1Riesel(N.h, N.n)
 				if err != nil {
 					panic(err)
 				}
@@ -390,7 +390,7 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 
 				N, _ := NewRieselNumber(int64(h), int64(n))
 
-				v1, err := GenV1(N, RODSETH)
+				v1, err := genV1Rodseth(N.h, N.n)
 				if err != nil {
 					panic(err)
 				}
@@ -433,7 +433,7 @@ func BenchmarkGenU2Penne(b *testing.B) {
 
 				N, _ := NewRieselNumber(int64(h), int64(n))
 
-				v1, err := GenV1(N, PENNE)
+				v1, err := genV1Penne(N.h, N.n)
 				if err != nil {
 					panic(err)
 				}
@@ -454,78 +454,3 @@ func BenchmarkGenU2Penne(b *testing.B) {
 	}
 }
 
-func BenchmarkGenU2WithV13(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/v1_with_h_NOT_multiple_of_3_and_v1_3_large.out"); err == nil {
-
-			// create a new scanner and read the file line by line
-			s := bufio.NewScanner(file)
-
-			for s.Scan() {
-				line := s.Text()
-				words := strings.Split(line, " ")
-				h, err := strconv.Atoi(words[0])
-				if err != nil {
-					panic(err)
-				}
-
-				n, err := strconv.Atoi(words[1])
-				if err != nil {
-					panic(err)
-				}
-
-				N, _ := NewRieselNumber(int64(h), int64(n))
-
-				GenU2(N, 3)
-			}
-
-			// check for errors
-			if err = s.Err(); err != nil {
-				panic(err)
-			}
-
-			file.Close()
-
-		} else {
-			panic(err)
-		}
-	}
-}
-
-func BenchmarkGenU2WithV14(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/v1_with_h_NOT_multiple_of_3_and_v1_3_large.out"); err == nil {
-
-			// create a new scanner and read the file line by line
-			s := bufio.NewScanner(file)
-
-			for s.Scan() {
-				line := s.Text()
-				words := strings.Split(line, " ")
-				h, err := strconv.Atoi(words[0])
-				if err != nil {
-					panic(err)
-				}
-
-				n, err := strconv.Atoi(words[1])
-				if err != nil {
-					panic(err)
-				}
-
-				N, _ := NewRieselNumber(int64(h), int64(n))
-
-				GenU2(N, 4)
-			}
-
-			// check for errors
-			if err = s.Err(); err != nil {
-				panic(err)
-			}
-
-			file.Close()
-
-		} else {
-			panic(err)
-		}
-	}
-}
