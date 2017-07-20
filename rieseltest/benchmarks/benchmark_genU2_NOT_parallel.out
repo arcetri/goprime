@@ -1,0 +1,5 @@
+PASS
+BenchmarkGenU2Riesel-28 	      20	225611736699 ns/op
+BenchmarkGenU2Rodseth-28	      20	228234411730 ns/op
+BenchmarkGenU2Penne-28  	      20	246827912495 ns/op
+ok  	primality/rieseltest	14708.030s

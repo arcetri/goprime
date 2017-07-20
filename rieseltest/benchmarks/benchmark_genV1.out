@@ -1,5 +1,5 @@
-BenchmarkGenV1Riesel-28     	   10000	 259866011 ns/op
-BenchmarkGenV1Rodseth-28    	   10000	 263502367 ns/op
-BenchmarkGenV1Penne-28      	   10000	 196186692 ns/op
 PASS
-ok  	goprime/rieseltest	7271.100s
+BenchmarkGenV1Riesel-24            20000         139868831 ns/op
+BenchmarkGenV1Rodseth-24           20000         158104522 ns/op
+BenchmarkGenV1Penne-24             30000          87032453 ns/op
+ok      goprime/rieseltest      12469.066s

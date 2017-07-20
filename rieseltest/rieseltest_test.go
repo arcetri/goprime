@@ -327,7 +327,7 @@ func BenchmarkGenV1Penne(b *testing.B) {
 
 func BenchmarkGenU2Riesel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -370,7 +370,7 @@ func BenchmarkGenU2Riesel(b *testing.B) {
 
 func BenchmarkGenU2Rodseth(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)
@@ -413,7 +413,7 @@ func BenchmarkGenU2Rodseth(b *testing.B) {
 
 func BenchmarkGenU2Penne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if file, err := os.Open("testfiles/h_n_large_primes.out"); err == nil {
+		if file, err := os.Open("testfiles/v1_with_h_multiple_of_3_large.out"); err == nil {
 
 			// create a new scanner and read the file line by line
 			s := bufio.NewScanner(file)

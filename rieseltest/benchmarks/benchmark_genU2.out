@@ -1,0 +1,5 @@
+PASS
+BenchmarkGenU2Riesel-24               20        145672761645 ns/op
+BenchmarkGenU2Rodseth-24              20        146415283986 ns/op
+BenchmarkGenU2Penne-24                10        157974746714 ns/op
+ok      goprime/rieseltest      7873.844s

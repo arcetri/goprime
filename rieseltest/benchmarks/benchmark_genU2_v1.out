@@ -1,0 +1,4 @@
+BenchmarkGenU2WithV13-28    	     500	4608960347 ns/op
+BenchmarkGenU2WithV14-28    	     500	4896529378 ns/op
+PASS
+ok  	goprime/rieseltest	5718.498s
