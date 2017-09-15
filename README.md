@@ -1,16 +1,16 @@
-# GoPrime
+# goprime
 
-GoPrime is a software that can perform a Lucas-Lehmer-Riesel primality test for numbers of the form 
+`goprime` is a software that can perform a Lucas-Lehmer-Riesel primality test for numbers of the form 
 __h*2<sup>n</sup>-1__.
 
 ## Motivation
 
-The main motivations for why GoPrime has been written are:
+The main motivations for why goprime has been written are:
 
 - Implement, evaluate, compare and document all the algorithms involved in the LLR test.
 - Estimate the time each substep of the LLR test and a full LLR test would take for any given number.
 
-GoPrime is open source to serve as a generic learning base for all those interested in understanding how the LLR test 
+goprime is open source to serve as a generic learning base for all those interested in understanding how the LLR test 
 works. It can be used also for finding new prime numbers, but finding new prime numbers is not the purpose for 
 why it was written (there currently is much better software for that purpose).
 
@@ -56,14 +56,17 @@ order of magnitude faster than what we observed so far.
 ### Goprime
 
 ```sh
-# Download and install GoPrime
-$ go get github.com/arcetri/GoPrime
+# Download and install goprime
+$ go get github.com/arcetri/goprime
 
-# Run GoPrime with any h and n
+# Run goprime with any h and n
 $ goprime 391581 216193
 ```
 
 If you have errors with these commands, check that you have GoLang (at least v6) installed and configured with:
+
+__NOTE__: goprime, by default, uses the [Go math/big][big] library, which is slow.
+For information on how to make it use a faster library, read the "Advanced" section below.
     
 ```sh
 # Set the $GOPATH and add the $GOPATH/bin to the PATH environment variable if not already done.
@@ -73,29 +76,57 @@ $ export PATH=$PATH:$GOPATH/bin
 
 ### Goprime-c
 
-GoPrime-c is a C translation of the GoPrime software. In our tests, it appeared that GoPrime-c is about 1.5% faster 
-than the corresponding GoLang code of GoPrime (when both are set to use the FLINT lib). 
+goprime-c is a C translation of the goprime software. In our tests, it appeared that goprime-c is about 1.5% faster 
+than the corresponding GoLang code of goprime (when both are set to use the FLINT lib - see below for details on that).
+
+__NOTE__: goprime-c requires the [FLINT][flint] library to be installed in your system.
 
 ```sh
-# Download and install GoPrime
-$ go get github.com/arcetri/GoPrime
-$ cd $GOPATH/src/github.com/arcetri/GoPrime/c
+# Download and install goprime
+$ go get github.com/arcetri/goprime
+$ cd $GOPATH/src/github.com/arcetri/goprime/c
 $ make install
 
-# Run GoPrime with any h and n
+# Run goprime with any h and n
 $ goprime-c 391581 216193
 ```
 
 ## Future work
+
 - Evaluate other methods to perform the squaring in the "Generating U(n)" substep.
 - Add correctness checks to be regularly performed during the "Generating U(n)" substep.
 - Add checkpoints to be regularly saved during the "Generating U(n)" substep.
-- Improve the goprime-c code using the GoPrime code and comments as an example.
+- Improve the goprime-c code using the goprime code and comments as an example.
+
+## Advanced
+
+__NOTE__: read this section only if you are willing to work on this project. Should you still have questions after
+ reading it, please feel free to contact us.
+
+To change the multiplication algorithm that goprime uses, one can use a provided script:
+```sh
+$ cd rieseltest
+$ ./change_multiplication_algorithm.sh <library name>
+```
+
+Currently goprime supports the libraries `big`, `gmp` and `flint`. However, using the `flint` or the `gmp` libraries
+for long tests might cause the system to start swapping.
+
+We previously "fixed" this issue in the `timings` branch of this repository, which also contains some
+experimental code we used for our experiments before switching to goprime-c. However, our "fix" broke the
+compatibility with the default `math/big` library. 
+
+Due to time-constraints, and in order not to make the simple code of goprime harder to understand, we decided
+to write goprime-c, which currently uses `flint` (the fastest library in our experiments) and do the timings
+from there.
+
+Thus, if you want to work on the go version of this project, beware that there are some "bindings bug" that
+still need to be fixed.
 
 ## Contribute
 
 Please feel invited to contribute by creating a pull request to submit the code or bug fixes you would like to be 
-included in GoPrime.
+included in goprime.
 
 You can also contact us using the following email address: *goprime-contributors (at) external (dot) cisco (dot) com*.
 If you send us an email, please include the phrase "__goprime author question__" somewhere in the subject line or 

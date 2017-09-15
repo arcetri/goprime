@@ -1,7 +1,7 @@
 package main
 
 import (
-	"goprime/rieseltest"
+	"github.com/arcetri/goprime/rieseltest"
 	"github.com/op/go-logging"
 	"fmt"
 	"flag"
