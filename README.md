@@ -64,15 +64,15 @@ $ goprime 391581 216193
 ```
 
 If you have errors with these commands, check that you have GoLang (at least v6) installed and configured with:
-
-__NOTE__: goprime, by default, uses the [Go math/big][big] library, which is slow.
-For information on how to make it use a faster library, read the "Advanced" section below.
     
 ```sh
 # Set the $GOPATH and add the $GOPATH/bin to the PATH environment variable if not already done.
 $ export GOPATH=$HOME/go
 $ export PATH=$PATH:$GOPATH/bin
 ```
+
+__NOTE__: goprime, by default, uses the [Go math/big][big] library, which is slow.
+For information on how to make it use a faster library, read the "Advanced" section below.
 
 ### Goprime-c
 
@@ -123,6 +123,9 @@ from there.
 Thus, if you want to work on the go version of this project, beware that there are some "bindings bug" that
 still need to be fixed.
 
+__NOTE__: if you wish to work on this project, we also recommend that you install the [go gvt][gvt] tool 
+and use it to manage the dependencies that are currently vendored in the "vendor" folder.
+
 ## Contribute
 
 Please feel invited to contribute by creating a pull request to submit the code or bug fixes you would like to be 
@@ -145,3 +148,4 @@ This project is distributed under the terms of the Apache License v2.0. See file
 [gwnums]: <https://www.mersenne.org/download/>
 [crandall]: <http://www.ams.org/journals/mcom/1994-62-205/S0025-5718-1994-1185244-1/S0025-5718-1994-1185244-1.pdf>
 [percival]: <http://www.daemonology.net/papers/fft.pdf>
+[gvt]: <https://github.com/FiloSottile/gvt>
